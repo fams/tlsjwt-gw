@@ -59,7 +59,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Printf("listening on %s", lis.Addr())
+	log.Infof("listening on %s", lis.Addr())
 
 	grpcServer := grpc.NewServer()
 	authServer := &AuthorizationServer{}

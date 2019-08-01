@@ -1,4 +1,4 @@
-#!/bin/bash - 
+#!/bin/bash
 #===============================================================================
 #
 #          FILE: build.sh
@@ -18,5 +18,5 @@
 #===============================================================================
 
 set -o nounset                              # Treat unset variables as an error
-go build  -o ext-auth-poc cmd/jwtgw/*.go
+go build -o ext-auth-poc cmd/jwtgw/*.go
 

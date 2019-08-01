@@ -5,14 +5,12 @@
   env:
     - GO111MODULE=on
  #   - GO111MODULE=off
-  go: [ 1.11.x, 1.12.x ]
-  os: [ linux, osx ]
+  go: [  1.12.x ]
+  os: [ linux ]
   matrix:
     exclude:
       - go: 1.12.x
-        env: GO111MODULE=off
-      - go: 1.11.x
-        os: osx
+        env: GO111MODULE=on
   #install:
   #  - ./travis/install.sh
   #  - if [[ "$GO111MODULE" ==  "on" ]]; then go mod download; fi

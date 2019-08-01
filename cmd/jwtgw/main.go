@@ -7,7 +7,6 @@ import (
 	"github.com/patrickmn/go-cache"
 	"google.golang.org/grpc"
 	"io/ioutil"
-	//"log"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"time"

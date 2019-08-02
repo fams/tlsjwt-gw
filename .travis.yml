@@ -11,7 +11,7 @@
     exclude:
       - go: 1.12.x
         env: GO111MODULE=off
-     - go: 1.11.x
+      - go: 1.11.x
         env: GO111MODULE=off
 
   #install:

@@ -2,6 +2,4 @@ tlsjwt-gw [![Build Status](https://travis-ci.org/fams/tlsjwt-gw.svg?branch=maste
 ==========
 
 
-
-# tlsjwt-gw
 External Auth para o envoy que transforma uma chamada mTLS em um JWT assinado com audiences baseados em um banco de dados

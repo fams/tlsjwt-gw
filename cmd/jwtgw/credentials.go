@@ -67,7 +67,7 @@ func (tc *CredentialMap) Init(loader CredentialLoader) {
 //Validate verifica se o certificado enviado tem permissão no caminho solicitado, retorna os claims
 func (tc *CredentialMap) Validate(perm Permission) (Claims, bool) {
 	//Area Critica
-	log.Debugf("Validando fingerprint %s, path: %s,", perm.Fingerprint, perm.Path)
+	log.Debugf("Validando fingerprint %s, path: %s,", perm.Fingerprint, perm.Scope)
 	tc.wg.Add(1)
 	tc.m.RLock()
 	epoch := tc.lastepoch

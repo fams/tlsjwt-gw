@@ -2,7 +2,7 @@ package main
 
 // par de certificate fingerprint + path
 type Permission struct {
-	Fingerprint, Path string
+	Fingerprint, Scope string
 }
 
 //Audiences a serem adicionadas

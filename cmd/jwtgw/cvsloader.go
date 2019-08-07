@@ -6,14 +6,23 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"strings"
 )
 
-type CvsLoader struct {
+type CsvLoader struct {
 	Cvspath string
 }
 
-func (c CvsLoader) LoadCredentials() (PermissionClaims, bool) {
-	csvFile, _ := os.Open(c.Cvspath)
+//CsvLoader.LoadCredentials carrega as permissões de um arquivo CVS no formato:
+//fingerprint,path,claim1|claim2
+//Você pode definir varios claims separando por |
+//
+func (c CsvLoader) LoadCredentials() (PermissionClaims, bool) {
+	csvFile, err := os.Open(c.Cvspath)
+	if err != nil {
+		log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.Cvspath, err)
+		return nil, false
+	}
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	pc := PermissionClaims{}
 	for {
@@ -21,11 +30,15 @@ func (c CvsLoader) LoadCredentials() (PermissionClaims, bool) {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.Cvspath, err)
+			log.Errorf("Erro lendo credenciais: %s, error: %s", c.Cvspath, err)
 			return nil, false
 		}
 		log.Debugf("recebido Fingerprint %s, Path: %s, Claim: %s", line[0], line[1], line[2])
-		pc[Permission{line[0], line[1]}] = Claims{line[2]}
+
+		//Cosntruindo array de audiences
+		audiences := strings.Split(line[2], "|")
+
+		pc[Permission{line[0], line[1]}] = Claims{audiences}
 	}
 	log.Info("filtros carregados do CSV")
 	return pc, true

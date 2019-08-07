@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net"
+	"os"
 	"time"
 )
 
@@ -29,12 +30,16 @@ func fatal(err error) {
 var (
 	configMap = CredentialMap{} //Mapa com caminhos validos
 	//verifyKey  *rsa.PublicKey //public key para auth
-	signKey  *rsa.PrivateKey //private key para assinar
-	jwtcache *cache.Cache
+	signKey *rsa.PrivateKey //private key para assinar
+
 )
 
 func main() {
-	log.SetLevel(log.DebugLevel)
+	debug := os.Getenv("DEBUG")
+	if len(debug) > 0 {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	//Carregando permissões iniciais
 	//var initialLoader CredentialLoader = StaticLoader{}
 
@@ -47,12 +52,13 @@ func main() {
 	fatal(err)
 
 	//Iniciando Cache
-	jwtcache = cache.New(cache_expiration_time*time.Minute, cache_cleanup_time*time.Minute)
+	//jwtcache = cache.New(cache_expiration_time*time.Minute, cache_cleanup_time*time.Minute)
 
 	//Iniciando o reconciliador de credenciais com o loader csv
 	var scheduleLoader CredentialLoader = CsvLoader{Cvspath: credentials_csv_file}
 
 	go configMap.Sched(60, scheduleLoader)
+
 	// create a TCP listener on port 4000
 	lis, err := net.Listen("tcp", ":4000")
 	if err != nil {
@@ -61,7 +67,9 @@ func main() {
 	log.Infof("listening on %s", lis.Addr())
 
 	grpcServer := grpc.NewServer()
-	authServer := &AuthorizationServer{}
+	authServer := &AuthorizationServer{
+		cache: cache.New(cache_expiration_time*time.Minute, cache_cleanup_time*time.Minute),
+	}
 	auth.RegisterAuthorizationServer(grpcServer, authServer)
 
 	if err := grpcServer.Serve(lis); err != nil {

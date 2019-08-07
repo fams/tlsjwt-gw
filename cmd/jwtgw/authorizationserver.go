@@ -25,14 +25,14 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	if ok {
 		splitHash = strings.Split(clientCert, "Hash=")
 	}
-	log.Debug("header: %s\ncode:%d", clientCert, len(splitHash))
+	log.Debugf("header: %s\ncode:%d", clientCert, len(splitHash))
 
 	u, _ := url.Parse(req.Attributes.Request.Http.Path)
 	splitPath := strings.Split(u.Path, "/")
 
 	if len(splitHash) == 2 && len(splitPath) > 2 {
 		fingerprint := splitHash[1]
-		log.Debug("received fingerprint %s", fingerprint)
+		log.Debugf("received fingerprint %s", fingerprint)
 
 		var serviceTag strings.Builder
 		serviceTag.WriteString("/")
@@ -45,17 +45,17 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 		// Se retornou ok, carrega as claims no jwt
 		if len(fingerprint) == 64 && okClaim {
-			log.Debug("Valid fingerprint %s for path: %s ", fingerprint, serviceTag.String())
+			log.Debugf("Valid fingerprint %s for path: %s ", fingerprint, serviceTag.String())
 
 			// Build token
-			token, err := GetToken(fingerprint, claims.Audience, signKey, 60)
+			token, err := GetToken(fingerprint, serviceTag.String(), claims.Audience, signKey, 60)
 
 			if err != nil {
 				log.Fatalf("failed to listen: %v", err)
 			}
 			tokenSha := fmt.Sprintf("Bearer %s", token)
 
-			log.Debug("Build token: %s", tokenSha)
+			log.Debugf("Build token: %s", tokenSha)
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
 					Code: int32(rpc.OK),
@@ -65,7 +65,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 						Headers: []*core.HeaderValueOption{
 							{
 								Header: &core.HeaderValue{
-									Key:   "Authentication",
+									Key:   "Authorization",
 									Value: tokenSha,
 								},
 							},

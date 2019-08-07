@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"reflect"
@@ -52,6 +51,7 @@ func (tc *CredentialMap) Sched(interval time.Duration, loader CredentialLoader) 
 
 //init carrega o mapa de permissoes inicial recebendo a funcao de carga inicial
 func (tc *CredentialMap) Init(loader CredentialLoader) {
+	//
 	trustee, ok := loader.LoadCredentials()
 	tc.mymap = make(map[int]PermissionClaims)
 	tc.m = &sync.RWMutex{}
@@ -67,7 +67,7 @@ func (tc *CredentialMap) Init(loader CredentialLoader) {
 //Validate verifica se o certificado enviado tem permissão no caminho solicitado, retorna os claims
 func (tc *CredentialMap) Validate(perm Permission) (Claims, bool) {
 	//Area Critica
-	log.Debug(fmt.Printf("Validando fingerprint %s, path: %s,", perm.Fingerprint, perm.Path))
+	log.Debugf("Validando fingerprint %s, path: %s,", perm.Fingerprint, perm.Path)
 	tc.wg.Add(1)
 	tc.m.RLock()
 	epoch := tc.lastepoch

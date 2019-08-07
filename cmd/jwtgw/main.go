@@ -5,9 +5,9 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/fams/jwt-go"
 	"github.com/patrickmn/go-cache"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"io/ioutil"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"time"
 )
@@ -34,11 +34,11 @@ var (
 )
 
 func main() {
-
+	log.SetLevel(log.DebugLevel)
 	//Carregando permissões iniciais
-	var initialLoader CredentialLoader = StaticLoader{}
+	//var initialLoader CredentialLoader = StaticLoader{}
 
-	configMap.Init(initialLoader)
+	configMap.Init(CsvLoader{Cvspath: credentials_csv_file})
 
 	//Carregando chaves de assinatura
 	signBytes, err := ioutil.ReadFile(privKeyPath)
@@ -50,9 +50,9 @@ func main() {
 	jwtcache = cache.New(cache_expiration_time*time.Minute, cache_cleanup_time*time.Minute)
 
 	//Iniciando o reconciliador de credenciais com o loader csv
-	var scheduleLoader CredentialLoader = CvsLoader{Cvspath: credentials_csv_file}
+	var scheduleLoader CredentialLoader = CsvLoader{Cvspath: credentials_csv_file}
 
-	go configMap.Sched(10, scheduleLoader)
+	go configMap.Sched(60, scheduleLoader)
 	// create a TCP listener on port 4000
 	lis, err := net.Listen("tcp", ":4000")
 	if err != nil {

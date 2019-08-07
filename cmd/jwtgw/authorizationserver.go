@@ -2,57 +2,86 @@ package main
 
 import (
 	"context"
-
 	"fmt"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type"
-
 	"github.com/gogo/googleapis/google/rpc"
-
+	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
-	"net/url"
 	"strings"
 )
 
 // empty struct because this isn't a fancy example
-type AuthorizationServer struct{}
+type AuthorizationServer struct {
+	cache *cache.Cache
+}
+
+//CacheToken
+
+func (a *AuthorizationServer) GetToken(permission Permission) (string, bool) {
+
+	var hash strings.Builder
+	hash.WriteString(permission.Fingerprint)
+	hash.WriteString(":")
+	hash.WriteString(permission.Scope)
+
+	cachedToken, found := a.cache.Get(hash.String())
+
+	if found {
+		log.Debug("Cache encontrado ", cachedToken.(string))
+		return cachedToken.(string), true
+	} else {
+		log.Debug("Nao encontrei cache para", hash.String())
+
+		log.Debugf("Validando fingerprint: %s, scope: %s", permission.Fingerprint, permission.Scope)
+
+		claims, okClaim := configMap.Validate(permission)
+		// Se retornou ok, carrega as claims no jwt
+		if len(permission.Fingerprint) == 64 && okClaim {
+			log.Debugf("Valid fingerprint %s for path: %s ", permission.Fingerprint, permission.Scope)
+
+			// Build token
+			tokenString, err := SignToken(claims.Audience, signKey, 60)
+
+			if err != nil {
+				log.Errorf("error sign Token: %v", err)
+				return "", false
+			}
+			a.cache.Set(hash.String(), tokenString, cache.DefaultExpiration)
+			return tokenString, true
+		}
+		return "", false
+
+	}
+}
 
 // Check verifica o tls fingerprint contra a base corrente e gera o tls fingerprint
 func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest) (*auth.CheckResponse, error) {
+
+	//Header  com fingerprint de certificado
 	clientCert, ok := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
 	var splitHash []string
 	if ok {
 		splitHash = strings.Split(clientCert, "Hash=")
 	}
+
 	log.Debugf("header: %s\ncode:%d", clientCert, len(splitHash))
 
-	u, _ := url.Parse(req.Attributes.Request.Http.Path)
-	splitPath := strings.Split(u.Path, "/")
+	//Header de scopo de claims
+	scope, ok := req.Attributes.Request.Http.Headers["x-scope-audience"]
 
-	if len(splitHash) == 2 && len(splitPath) > 2 {
+	//Verifica se possui um fingerprint a verificar
+	if len(splitHash) == 2 {
+
+		//extraindo fingerprint
 		fingerprint := splitHash[1]
 		log.Debugf("received fingerprint %s", fingerprint)
 
-		var serviceTag strings.Builder
-		serviceTag.WriteString("/")
-		serviceTag.WriteString(splitPath[1])
-		serviceTag.WriteString("/")
-		serviceTag.WriteString(splitPath[2])
+		token, okToken := a.GetToken(Permission{fingerprint, scope})
 
-		//Valida o Fingerprint
-		claims, okClaim := configMap.Validate(Permission{fingerprint, serviceTag.String()})
+		if okToken {
 
-		// Se retornou ok, carrega as claims no jwt
-		if len(fingerprint) == 64 && okClaim {
-			log.Debugf("Valid fingerprint %s for path: %s ", fingerprint, serviceTag.String())
-
-			// Build token
-			token, err := GetToken(fingerprint, serviceTag.String(), claims.Audience, signKey, 60)
-
-			if err != nil {
-				log.Fatalf("failed to listen: %v", err)
-			}
 			tokenSha := fmt.Sprintf("Bearer %s", token)
 
 			log.Debugf("Build token: %s", tokenSha)
@@ -75,6 +104,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			}, nil
 		}
 	}
+	log.Debugf("Retornando unauth\n")
 	return &auth.CheckResponse{
 		Status: &rpc.Status{
 			Code: int32(rpc.UNAUTHENTICATED),

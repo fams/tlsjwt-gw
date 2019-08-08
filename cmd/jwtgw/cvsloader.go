@@ -33,7 +33,7 @@ func (c CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 			log.Errorf("Erro lendo credenciais: %s, error: %s", c.Cvspath, err)
 			return nil, false
 		}
-		log.Debugf("recebido Fingerprint %s, Scope: %s, Claim: %s", line[0], line[1], line[2])
+		log.Debugf("recebido Fingerprint %s, Scope	: %s, Claim: %s", line[0], line[1], line[2])
 
 		//Cosntruindo array de audiences
 		audiences := strings.Split(line[2], "|")

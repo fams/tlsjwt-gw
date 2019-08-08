@@ -16,14 +16,7 @@ import (
 	"time"
 )
 
-//const (
-//	//privKeyPath           = "/auth/extauth.rsa" // openssl genrsa -out app.rsa keysize
-//	//cache_expiration_time = 5
-//	//cache_cleanup_time    = 10
-//	//credentials_csv_file  = "/auth/auth.csv"
-//	//pubKeyPath  = "/auth/extauth.rsa.pub" // openssl rsa -in app.rsa -pubout > app.rsa.pub
-//)
-
+// kill program
 func fatal(err error) {
 	if err != nil {
 		log.Fatal(err)
@@ -39,23 +32,22 @@ var (
 
 func main() {
 	// Definindo Padroes e lendo arquivo de configuracao
-	v1, err := c.ReadConfig(".env",map[string]***REMOVED***face{}{
+	v1, err := c.ReadConfig("extauth", map[string]***REMOVED***face{}{
 		"port":     8080,
 		"hostname": "localhost",
-		"debug": "info",
+		"debug":    "info",
 		"cache": map[string]***REMOVED***face{}{
 			"expiration": 5,
-			"cleanup": 10,
+			"cleanup":    10,
 		},
-		"credentials":map[string]string{
-			"type": "csv",
+		"credentials": map[string]string{
+			"type":   "csv",
 			"config": "{\"path\": \"/auth/credential\"}",
 			"reload": "60",
 		},
 		"jwt": map[string]string{
 			"rsaPrivateFile": "/auth/extauth.rsa",
 		},
-
 	})
 	if err != nil {
 		panic(fmt.Errorf("Error when reading config: %v\n", err))
@@ -73,26 +65,25 @@ func main() {
 
 	}
 
-
 	//
 	// Configurando sincronizador de credenciais
 	//
 	var loader CredentialLoader
 	credentialsConfig := v1.GetStringMapString("credentials")
-//	sourceReloadInterval := source["reload"]
-	***REMOVED***val,_ := strconv.Atoi(credentialsConfig["reload"])
-//	***REMOVED***val,_ := strconv.Atoi(sourceReloadInterval)
+	//	sourceReloadInterval := source["reload"]
+	***REMOVED***val, _ := strconv.Atoi(credentialsConfig["reload"])
+	//	***REMOVED***val,_ := strconv.Atoi(sourceReloadInterval)
 
-	if(***REMOVED***val<10){
+	if ***REMOVED***val < 10 {
 		log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
 	}
 	switch credentialsConfig["type"] {
-		case "csv":
-			var param map[string]***REMOVED***face{}
-			if err := json.Unmarshal([]byte(credentialsConfig["config"]),&param); err != nil {
-				log.Fatalf("Erro analisando config do provedor de credenciais", err)
-			}
-			loader = CsvLoader{param["path"].(string)}
+	case "csv":
+		var param map[string]***REMOVED***face{}
+		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
+			log.Fatalf("Erro analisando config do provedor de credenciais", err)
+		}
+		loader = CsvLoader{param["path"].(string)}
 	default:
 		log.Fatal("Nenhum provedor de credenciais configurado")
 
@@ -112,20 +103,16 @@ func main() {
 	signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	fatal(err)
 
-
-
-	//Configurar Cache
+	// Configurar Cache
 	cacheConf := v1.GetStringMap("cache")
 	cleanup := cacheConf["cleanup"].(int)
 	expiration := cacheConf["expiration"].(int)
 	cacheCleanupTime := time.Duration(int64(cleanup))
 	cacheExpirationTime := time.Duration(int64(expiration))
 
-	//Iniciando o reconciliador de credenciais com o loader csv
+	// Iniciando o reconciliador de credenciais com o loader csv
 
-	go configMap.Sched( time.Duration(***REMOVED***val), loader)
-
-
+	go configMap.Sched(time.Duration(***REMOVED***val), loader)
 
 	// create a TCP listener on port 4000
 	lis, err := net.Listen("tcp", ":4000")
@@ -136,7 +123,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	authServer := &AuthorizationServer{
-		cache: cache.New( cacheCleanupTime* time.Minute, cacheExpirationTime*time.Minute),
+		cache: cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
 	}
 	auth.RegisterAuthorizationServer(grpcServer, authServer)
 

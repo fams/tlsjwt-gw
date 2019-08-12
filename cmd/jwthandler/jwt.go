@@ -12,7 +12,25 @@ import (
 // https://tools.ietf.org/html/rfc7519#section-4.1
 // See examples for how to use this with your own claim types
 
-func SignToken(audiences []string, signKey *rsa.PrivateKey, lifetime time.Duration) (string, error) {
+func fatal(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+type JwtHandler struct {
+	signKey *rsa.PrivateKey
+}
+
+func New(signBytes []byte) *JwtHandler {
+	j := new(JwtHandler)
+	var err error
+	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
+	fatal(err)
+	return j
+}
+
+func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (string, error) {
 	//tokeninzador RS256
 
 	var claims jwt.MapClaims
@@ -37,15 +55,39 @@ func SignToken(audiences []string, signKey *rsa.PrivateKey, lifetime time.Durati
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
-	//token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-	//	"audience": audience,
-	//	"nbf": time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
-	//	"nbf": time.Now().Unix(),
-	//	"exp": time.Now().Add(time.Minute * lifetime).Unix(),
-	//})
-
 	// Sign and get the complete encoded token as a string using the secret
-	tokenString, err := token.SignedString(signKey)
+	tokenString, err := token.SignedString(j.signKey)
 
 	return tokenString, err
 }
+
+//func SignToken(audiences []string, signKey *rsa.PrivateKey, lifetime time.Duration) (string, error) {
+//	//tokeninzador RS256
+//
+//	var claims jwt.MapClaims
+//	if len(audiences) > 1 {
+//
+//		log.Debugf("Gerando claims para %d audience", len(audiences))
+//		claims = jwt.MapClaims{
+//			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
+//			"iss": "gwt.processadorainter.local",
+//			"nbf": time.Now().Unix(),
+//			"aud": audiences,
+//		}
+//
+//	} else {
+//		claims = jwt.MapClaims{
+//			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
+//			"iss": "gwt.processadorainter.local",
+//			"nbf": time.Now().Unix(),
+//			"aud": audiences[0],
+//		}
+//	}
+//
+//	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+//
+//	// Sign and get the complete encoded token as a string using the secret
+//	tokenString, err := token.SignedString(signKey)
+//
+//	return tokenString, err
+//}

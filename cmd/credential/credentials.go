@@ -40,6 +40,9 @@ func (tc *CredentialMap) Sched(interval time.Duration, loader CredentialLoader) 
 				tc.m.Lock()
 				tc.lastepoch = newepoch
 				tc.m.Unlock()
+				if newepoch > 5 {
+					delete(tc.mymap, newepoch-5)
+				}
 			}
 		} else {
 			tc.wg.Done()
@@ -65,7 +68,7 @@ func (tc *CredentialMap) Init(loader CredentialLoader) {
 }
 
 //init carrega o mapa de permissoes inicial recebendo a funcao de carga inicial
-func New(loader CredentialLoader) (* CredentialMap){
+func New(loader CredentialLoader) *CredentialMap {
 	//
 	tc := new(CredentialMap)
 	trustee, ok := loader.LoadCredentials()
@@ -77,10 +80,10 @@ func New(loader CredentialLoader) (* CredentialMap){
 		tc.mymap[0] = trustee
 	} else {
 		log.Fatal("Erro carregando permissoes iniciais")
+		return nil
 	}
 	return tc
 }
-
 
 //Validate verifica se o certificado enviado tem permissão no caminho solicitado, retorna os claims
 func (tc *CredentialMap) Validate(perm Permission) (Claims, bool) {

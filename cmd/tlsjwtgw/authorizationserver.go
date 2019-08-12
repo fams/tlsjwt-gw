@@ -19,6 +19,7 @@ import (
 type AuthorizationServer struct {
 	cache         *cache.Cache
 	credentialMap *credential.CredentialMap
+	jwtinstance   *jwthandler.JwtHandler
 }
 
 //CacheToken
@@ -46,7 +47,7 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission) (stri
 			log.Debugf("Valid fingerprint %s for path: %s ", permission.Fingerprint, permission.Scope)
 
 			// Build token
-			tokenString, err := jwthandler.SignToken(claims.Audience, signKey, 60)
+			tokenString, err := a.jwtinstance.SignToken(claims.Audience, 60)
 
 			if err != nil {
 				log.Errorf("error sign Token: %v", err)

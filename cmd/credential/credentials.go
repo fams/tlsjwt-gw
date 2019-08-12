@@ -64,6 +64,24 @@ func (tc *CredentialMap) Init(loader CredentialLoader) {
 	}
 }
 
+//init carrega o mapa de permissoes inicial recebendo a funcao de carga inicial
+func New(loader CredentialLoader) (* CredentialMap){
+	//
+	tc := new(CredentialMap)
+	trustee, ok := loader.LoadCredentials()
+	tc.mymap = make(map[int]PermissionClaims)
+	tc.m = &sync.RWMutex{}
+	tc.wg = &sync.WaitGroup{}
+	if ok {
+		tc.lastepoch = 0
+		tc.mymap[0] = trustee
+	} else {
+		log.Fatal("Erro carregando permissoes iniciais")
+	}
+	return tc
+}
+
+
 //Validate verifica se o certificado enviado tem permissão no caminho solicitado, retorna os claims
 func (tc *CredentialMap) Validate(perm Permission) (Claims, bool) {
 	//Area Critica

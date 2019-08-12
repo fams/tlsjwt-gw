@@ -25,7 +25,7 @@ func fatal(err error) {
 }
 
 var (
-	configMap = credential.CredentialMap{} //Mapa com caminhos validos
+	//configMap = credential.CredentialMap{} //Mapa com caminhos validos
 	//verifyKey  *rsa.PublicKey //public key para auth
 	signKey *rsa.PrivateKey //private key para assinar
 
@@ -97,8 +97,10 @@ func main() {
 	}
 
 	//Carregando permissões iniciais
-	configMap.Init(loader)
+	credentialMap :=credential.New(loader)
+	// Iniciando o reconciliador de credenciais com o loader csv
 
+	go credentialMap.Sched(time.Duration(***REMOVED***val), loader)
 	//
 	// Carregando chaves de assinatura
 
@@ -117,9 +119,7 @@ func main() {
 	cacheCleanupTime := time.Duration(int64(cleanup))
 	cacheExpirationTime := time.Duration(int64(expiration))
 
-	// Iniciando o reconciliador de credenciais com o loader csv
 
-	go configMap.Sched(time.Duration(***REMOVED***val), loader)
 
 	// create a TCP listener on port 4000
 	lis, err := net.Listen("tcp", ":4000")
@@ -131,6 +131,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 	authServer := &AuthorizationServer{
 		cache: cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
+		credentialMap: credentialMap,
 	}
 	auth.RegisterAuthorizationServer(grpcServer, authServer)
 

@@ -1,6 +1,7 @@
 module extauth
 
 require (
+	github.com/aws/aws-sdk-go v1.22.3
 	github.com/envoyproxy/go-control-plane v0.8.0
 	github.com/fams/jwt-go v3.2.1-aud2+incompatible
 	github.com/gogo/googleapis v1.2.0

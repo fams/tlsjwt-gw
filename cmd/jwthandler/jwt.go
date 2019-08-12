@@ -1,4 +1,4 @@
-package main
+package jwthandler
 
 import (
 	"crypto/rsa"

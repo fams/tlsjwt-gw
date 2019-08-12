@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"extauth/cmd/credential"
+	"extauth/cmd/jwthandler"
 	"fmt"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
@@ -19,7 +21,7 @@ type AuthorizationServer struct {
 
 //CacheToken
 
-func (a *AuthorizationServer) GetToken(permission Permission) (string, bool) {
+func (a *AuthorizationServer) GetToken(permission credential.Permission) (string, bool) {
 
 	var hash strings.Builder
 	hash.WriteString(permission.Fingerprint)
@@ -42,7 +44,7 @@ func (a *AuthorizationServer) GetToken(permission Permission) (string, bool) {
 			log.Debugf("Valid fingerprint %s for path: %s ", permission.Fingerprint, permission.Scope)
 
 			// Build token
-			tokenString, err := SignToken(claims.Audience, signKey, 60)
+			tokenString, err := jwthandler.SignToken(claims.Audience, signKey, 60)
 
 			if err != nil {
 				log.Errorf("error sign Token: %v", err)
@@ -78,7 +80,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		fingerprint := splitHash[1]
 		log.Debugf("received fingerprint %s", fingerprint)
 
-		token, okToken := a.GetToken(Permission{fingerprint, scope})
+		token, okToken := a.GetToken(credential.Permission{fingerprint, scope})
 
 		if okToken {
 

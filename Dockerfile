@@ -6,7 +6,7 @@ COPY go* /build/
 # do this in a separate layer to cache deps from build to build
 #RUN go get
 ADD . .
-RUN CGO_ENABLED=0 GOOOS=linux go build  -o ext-auth-poc /build/cmd/jwtgw/*.go
+RUN CGO_ENABLED=0 GOOOS=linux go build  -o ext-auth-poc /build/cmd/tlsjwtgw/*.go
 
 
 FROM alpine:latest

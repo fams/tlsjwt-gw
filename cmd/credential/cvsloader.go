@@ -23,6 +23,7 @@ func (c CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 		log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.Cvspath, err)
 		return nil, false
 	}
+	defer csvFile.Close()
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	pc := PermissionClaims{}
 	for {
@@ -37,7 +38,6 @@ func (c CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 
 		//Cosntruindo array de audiences
 		audiences := strings.Split(line[2], "|")
-
 		pc[Permission{line[0], line[1]}] = Claims{audiences}
 	}
 	log.Info("filtros carregados do CSV")

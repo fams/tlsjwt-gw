@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"extauth/cmd/credential"
 	"extauth/cmd/jwthandler"
 	"fmt"
@@ -16,13 +17,13 @@ import (
 
 // empty struct because this isn't a fancy example
 type AuthorizationServer struct {
-	cache *cache.Cache
+	cache         *cache.Cache
 	credentialMap *credential.CredentialMap
 }
 
 //CacheToken
 
-func (a *AuthorizationServer) GetToken(permission credential.Permission) (string, bool) {
+func (a *AuthorizationServer) BuildToken(permission credential.Permission) (string, bool) {
 
 	var hash strings.Builder
 	hash.WriteString(permission.Fingerprint)
@@ -59,29 +60,72 @@ func (a *AuthorizationServer) GetToken(permission credential.Permission) (string
 	}
 }
 
+// FromAuthHeader is a "TokenExtractor" that takes a give request and extracts
+// the JWT token from the Authorization header.
+func FromAuthHeader(authHeader string) (string, error) {
+	if authHeader == "" {
+		return "", nil // No error, just no token
+	}
+
+	authHeaderParts := strings.Fields(authHeader)
+	if len(authHeaderParts) != 2 || strings.ToLower(authHeaderParts[0]) != "bearer" {
+		return "", errors.New("Authorization header format must be Bearer {token}")
+	}
+
+	return authHeaderParts[1], nil
+}
+
+// FromFingerprint extrai o fingerprint do cabecalho exportado pelo mTLS
+
+func FromFingerprintHeader(FingerprintHeader string) (string, error) {
+	if FingerprintHeader == "" {
+		return "", nil // No error, just no token
+	}
+
+	FingerprintHeaderParts := strings.Split(FingerprintHeader, "=")
+	if len(FingerprintHeaderParts) != 2 || strings.ToLower(FingerprintHeaderParts[0]) != "Hash" {
+		return "", errors.New("Fingerprint header format must be Hash={fingerprint}")
+	}
+
+	return FingerprintHeaderParts[1], nil
+}
+
 // Check verifica o tls fingerprint contra a base corrente e gera o tls fingerprint
 func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest) (*auth.CheckResponse, error) {
 
 	//Header  com fingerprint de certificado
-	clientCert, ok := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
-	var splitHash []string
-	if ok {
-		splitHash = strings.Split(clientCert, "Hash=")
-	}
-
-	log.Debugf("header: %s\ncode:%d", clientCert, len(splitHash))
+	clientCertHeader, _ := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
 
 	//Header de scopo de claims
-	scope, ok := req.Attributes.Request.Http.Headers["x-scope-audience"]
+	scopeHeader, _ := req.Attributes.Request.Http.Headers["x-scope-audience"]
 
-	//Verifica se possui um fingerprint a verificar
-	if len(splitHash) == 2 {
+	//Header JWT de authorizacao
+	authorizationHeader, _ := req.Attributes.Request.Http.Headers["authorization"]
 
-		//extraindo fingerprint
-		fingerprint := splitHash[1]
+	//Authorization JWT
+	bearer, bearerErr := FromAuthHeader(authorizationHeader)
+
+	// Se receber um Authorization Valido retorna ok
+	if bearerErr == nil && len(bearer) > 0 {
+		log.Debugf("Received Authorization")
+		return &auth.CheckResponse{
+			Status: &rpc.Status{
+				Code: int32(rpc.OK),
+			},
+			HttpResponse: &auth.CheckResponse_OkResponse{
+				OkResponse: &auth.OkHttpResponse{},
+			},
+		}, nil
+	}
+
+	fingerprint, fingerprintErr := FromFingerprintHeader(clientCertHeader)
+
+	//Se tiver um fingerprint permitido Gera os JWT e repassa
+	if fingerprintErr == nil || len(fingerprint) > 0 {
+
 		log.Debugf("received fingerprint %s", fingerprint)
 
-		token, okToken := a.GetToken(credential.Permission{fingerprint, scope})
+		token, okToken := a.BuildToken(credential.Permission{fingerprint, scopeHeader})
 
 		if okToken {
 
@@ -107,6 +151,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			}, nil
 		}
 	}
+	// Sem Authorization ou mTLS retorna falha de autenticacao
 	log.Debugf("Retornando unauth\n")
 	return &auth.CheckResponse{
 		Status: &rpc.Status{

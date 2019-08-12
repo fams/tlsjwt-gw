@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	c "extauth/cmd/config"
+	"extauth/cmd/credential"
 	"fmt"
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/fams/jwt-go"
@@ -24,7 +25,7 @@ func fatal(err error) {
 }
 
 var (
-	configMap = CredentialMap{} //Mapa com caminhos validos
+	configMap = credential.CredentialMap{} //Mapa com caminhos validos
 	//verifyKey  *rsa.PublicKey //public key para auth
 	signKey *rsa.PrivateKey //private key para assinar
 
@@ -68,7 +69,7 @@ func main() {
 	//
 	// Configurando sincronizador de credenciais
 	//
-	var loader CredentialLoader
+	var loader credential.CredentialLoader
 	credentialsConfig := v1.GetStringMapString("credentials")
 	//	sourceReloadInterval := source["reload"]
 	interval, _ := strconv.Atoi(credentialsConfig["reload"])
@@ -83,7 +84,13 @@ func main() {
 		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
 			log.Fatalf("Erro analisando config do provedor de credenciais", err)
 		}
-		loader = CsvLoader{param["path"].(string)}
+		loader = credential.CsvLoader{param["path"].(string)}
+	case "s3":
+		var param map[string]interface{}
+		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
+			log.Fatalf("Erro analisando config do provedor de credenciais", err)
+		}
+		loader = &credential.S3loader{param["bucket"].(string), param["key"].(string), param["region"].(string)}
 	default:
 		log.Fatal("Nenhum provedor de credenciais configurado")
 

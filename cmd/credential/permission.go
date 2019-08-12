@@ -1,4 +1,4 @@
-package main
+package credential
 
 // par de certificate fingerprint + path
 type Permission struct {

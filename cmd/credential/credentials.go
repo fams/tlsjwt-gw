@@ -1,4 +1,4 @@
-package main
+package credential
 
 import (
 	log "github.com/sirupsen/logrus"

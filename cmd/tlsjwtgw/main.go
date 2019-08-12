@@ -1,13 +1,12 @@
 package main
 
 import (
-	"crypto/rsa"
 	"encoding/json"
 	c "extauth/cmd/config"
 	"extauth/cmd/credential"
+	"extauth/cmd/jwthandler"
 	"fmt"
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-	"github.com/fams/jwt-go"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -25,9 +24,9 @@ func fatal(err error) {
 }
 
 var (
-	//configMap = credential.CredentialMap{} //Mapa com caminhos validos
-	//verifyKey  *rsa.PublicKey //public key para auth
-	signKey *rsa.PrivateKey //private key para assinar
+//configMap = credential.CredentialMap{} //Mapa com caminhos validos
+//verifyKey  *rsa.PublicKey //public key para auth
+//signKey *rsa.PrivateKey //private key para assinar
 
 )
 
@@ -97,29 +96,31 @@ func main() {
 	}
 
 	//Carregando permissões iniciais
-	credentialMap :=credential.New(loader)
+	credentialMap := credential.New(loader)
 	// Iniciando o reconciliador de credenciais com o loader csv
 
 	go credentialMap.Sched(time.Duration(***REMOVED***val), loader)
+
 	//
 	// Carregando chaves de assinatura
-
+	//
 	jwtconf := v1.GetStringMapString("jwt")
 	privKeyPath := jwtconf["rsaprivatefile"]
 
 	signBytes, err := ioutil.ReadFile(privKeyPath)
 	fatal(err)
-	signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
-	fatal(err)
 
-	// Configurar Cache
+	//
+	//signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
+	//fatal(err)
+	myJwtHandler := jwthandler.New(signBytes)
+
+	// Dados de configuracao do Cache
 	cacheConf := v1.GetStringMap("cache")
 	cleanup := cacheConf["cleanup"].(int)
 	expiration := cacheConf["expiration"].(int)
 	cacheCleanupTime := time.Duration(int64(cleanup))
 	cacheExpirationTime := time.Duration(int64(expiration))
-
-
 
 	// create a TCP listener on port 4000
 	lis, err := net.Listen("tcp", ":4000")
@@ -129,9 +130,12 @@ func main() {
 	log.Infof("listening on %s", lis.Addr())
 
 	grpcServer := grpc.NewServer()
+
+	//Inicializando Servidor de Autorizacao
 	authServer := &AuthorizationServer{
-		cache: cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
+		cache:         cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
 		credentialMap: credentialMap,
+		jwtinstance:   myJwtHandler,
 	}
 	auth.RegisterAuthorizationServer(grpcServer, authServer)
 

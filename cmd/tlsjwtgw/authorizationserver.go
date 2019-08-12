@@ -17,6 +17,7 @@ import (
 // empty struct because this isn't a fancy example
 type AuthorizationServer struct {
 	cache *cache.Cache
+	credentialMap *credential.CredentialMap
 }
 
 //CacheToken
@@ -38,7 +39,7 @@ func (a *AuthorizationServer) GetToken(permission credential.Permission) (string
 
 		log.Debugf("Validando fingerprint: %s, scope: %s", permission.Fingerprint, permission.Scope)
 
-		claims, okClaim := configMap.Validate(permission)
+		claims, okClaim := a.credentialMap.Validate(permission)
 		// Se retornou ok, carrega as claims no jwt
 		if len(permission.Fingerprint) == 64 && okClaim {
 			log.Debugf("Valid fingerprint %s for path: %s ", permission.Fingerprint, permission.Scope)

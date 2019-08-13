@@ -47,6 +47,18 @@ func main() {
 		},
 		"jwt": map[string]string{
 			"rsaPrivateFile": "/auth/extauth.rsa",
+			"localIssuer":    "uat-service.***REMOVED***.com.br",
+			"issuers": "{" +
+				"\"iss\":\"uat-service.***REMOVED***.com.br\", " +
+				"\"local\":{" +
+				"\"rsaPublicFile\":\"/auth/extauth.rsa.pub\"," +
+				"}," +
+				"{" +
+				"\"iss\":\"uat-oauth.***REMOVED***.com.br\", " +
+				"\"remote\":{" +
+				"\"url\":\"uat-keycloak.***REMOVED***.com.br/uat/.well-known/jwks.json\"," +
+				"}" +
+				"}",
 		},
 	})
 	if err != nil {
@@ -83,13 +95,15 @@ func main() {
 		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
 			log.Fatalf("Erro analisando config do provedor de credenciais", err)
 		}
-		loader = credential.CsvLoader{param["path"].(string)}
+		loader = &credential.CsvLoader{param["path"].(string)}
+
 	case "s3":
 		var param map[string]interface{}
 		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
 			log.Fatalf("Erro analisando config do provedor de credenciais", err)
 		}
 		loader = &credential.S3loader{param["bucket"].(string), param["key"].(string), param["region"].(string)}
+
 	default:
 		log.Fatal("Nenhum provedor de credenciais configurado")
 
@@ -102,10 +116,11 @@ func main() {
 	go credentialMap.Sched(time.Duration(interval), loader)
 
 	//
-	// Carregando chaves de assinatura
+	// Carregando chaves de assinatura e hostname issuer do jwt
 	//
 	jwtconf := v1.GetStringMapString("jwt")
 	privKeyPath := jwtconf["rsaprivatefile"]
+	localIssuer := jwtconf["localIssuer"]
 
 	signBytes, err := ioutil.ReadFile(privKeyPath)
 	fatal(err)
@@ -113,7 +128,7 @@ func main() {
 	//
 	//signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	//fatal(err)
-	myJwtHandler := jwthandler.New(signBytes, "gwt.***REMOVED***.local")
+	myJwtHandler := jwthandler.New(signBytes, localIssuer)
 
 	// Dados de configuracao do Cache
 	cacheConf := v1.GetStringMap("cache")

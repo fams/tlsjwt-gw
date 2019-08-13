@@ -10,6 +10,7 @@ import (
 )
 
 type CsvLoader struct {
+	//LoadCredentials() (PermissionClaims, bool)
 	CsvPath string
 }
 

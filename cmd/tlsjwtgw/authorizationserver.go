@@ -17,11 +17,16 @@ import (
 
 // empty struct because this isn't a fancy example
 type AuthorizationServer struct {
-	jwtCache      *cache.Cache
-	credentialMap *credential.CredentialMap
-	jwtinstance   *jwthandler.JwtHandler
+	credentialCache *cache.Cache
+	credentialMap   *credential.CredentialMap
+	jwtinstance     *jwthandler.JwtHandler
+	oidc 			*oidcConf
 }
 
+type oidcConf struct{
+	hostname string
+	path string
+}
 //CacheToken
 
 func (a *AuthorizationServer) BuildToken(permission credential.Permission) (string, bool) {
@@ -31,13 +36,13 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission) (stri
 	hash.WriteString(":")
 	hash.WriteString(permission.Scope)
 
-	cachedToken, found := a.jwtCache.Get(hash.String())
+	cachedToken, found := a.credentialCache.Get(hash.String())
 
 	if found {
 		log.Debug("Cache encontrado ", cachedToken.(string))
 		return cachedToken.(string), true
 	} else {
-		log.Debug("Nao encontrei jwtCache para", hash.String())
+		log.Debug("Nao encontrei credentialCache para", hash.String())
 
 		log.Debugf("Validando fingerprint: %s, scope: %s", permission.Fingerprint, permission.Scope)
 
@@ -53,7 +58,7 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission) (stri
 				log.Errorf("error sign Token: %v", err)
 				return "", false
 			}
-			a.jwtCache.Set(hash.String(), tokenString, cache.DefaultExpiration)
+			a.credentialCache.Set(hash.String(), tokenString, cache.DefaultExpiration)
 			return tokenString, true
 		}
 		return "", false
@@ -106,6 +111,21 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 	//Authorization JWT
 	bearer, bearerErr := FromAuthHeader(authorizationHeader)
+
+	hostname := req.Attributes.Request.Http.Host
+	path := req.Attributes.Request.Http.Path
+
+	if hostname == a.oidc.hostname && a.oidc.path == path[:len( a.oidc.hostname )]{
+		log.Debugf("Auth request")
+		return &auth.CheckResponse{
+			Status: &rpc.Status{
+				Code: int32(rpc.OK),
+			},
+			HttpResponse: &auth.CheckResponse_OkResponse{
+				OkResponse: &auth.OkHttpResponse{},
+			},
+		}, nil
+	}
 
 	// Se receber um Authorization Valido retorna ok
 	if bearerErr == nil && len(bearer) > 0 {
@@ -165,7 +185,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 				Status: &envoytype.HttpStatus{
 					Code: envoytype.StatusCode_Unauthorized,
 				},
-				Body: "<em>TLSGW: Not valid fingerprint<em>",
+				Body: "<em>No mTLS ou Oautht<em>",
 			},
 		},
 	}, nil

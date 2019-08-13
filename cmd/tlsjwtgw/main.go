@@ -36,7 +36,12 @@ func main() {
 		"port":     8080,
 		"hostname": "localhost",
 		"loglevel":    "debug",
-		"jwtCache": map[string]***REMOVED***face{}{
+		"oidc":		 map[string]***REMOVED***face{}{
+			"hostname":"localhost",
+			"path": "/auth",
+		},
+
+		"credentialCache": map[string]***REMOVED***face{}{
 			"expiration": 5,
 			"cleanup":    10,
 		},
@@ -141,20 +146,28 @@ func main() {
 
 	//
 	// Configurando o Cache de assinaturas para o authorizador
-	cacheConf := v1.GetStringMap("jwtCache")
+	cacheConf := v1.GetStringMap("credentialCache")
 	cleanup := cacheConf["cleanup"].(int)
 	expiration := cacheConf["expiration"].(int)
 	cacheCleanupTime := time.Duration(int64(cleanup))
 	cacheExpirationTime := time.Duration(int64(expiration))
 
+	// Autenticador Interno
+	oidcParam := v1.GetStringMap("oidc")
+	oidc := oidcConf{oidcParam["hostname"].(string),oidcParam["path"].(string)}
+
+
 
 	//
 	// Inicializando Servidor de Autorizacao
-	// Injetando jwtCache de tokens, base de credenciais e gerenciador de JWT
+	// Injetando credentialCache de tokens, base de credenciais e gerenciador de JWT
 	authServer := &AuthorizationServer{
-		jwtCache:      cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
-		credentialMap: credentialMap,
-		jwtinstance:   myJwtHandler,
+		credentialCache: cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
+		credentialMap:   credentialMap,
+		jwtinstance:     myJwtHandler,
+		oidc:        &oidc,
+
+
 	}
 
 	// create a TCP listener on port 4000

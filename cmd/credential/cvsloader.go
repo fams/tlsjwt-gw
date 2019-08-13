@@ -10,17 +10,17 @@ import (
 )
 
 type CsvLoader struct {
-	Cvspath string
+	CsvPath string
 }
 
 //CsvLoader.LoadCredentials carrega as permissões de um arquivo CVS no formato:
 //fingerprint,path,claim1|claim2
 //Você pode definir varios claims separando por |
 //
-func (c CsvLoader) LoadCredentials() (PermissionClaims, bool) {
-	csvFile, err := os.Open(c.Cvspath)
+func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
+	csvFile, err := os.Open(c.CsvPath)
 	if err != nil {
-		log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.Cvspath, err)
+		log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.CsvPath, err)
 		return nil, false
 	}
 	defer csvFile.Close()
@@ -31,7 +31,7 @@ func (c CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Errorf("Erro lendo credenciais: %s, error: %s", c.Cvspath, err)
+			log.Errorf("Erro lendo credenciais: %s, error: %s", c.CsvPath, err)
 			return nil, false
 		}
 		log.Debugf("recebido Fingerprint %s, Scope	: %s, Claim: %s", line[0], line[1], line[2])

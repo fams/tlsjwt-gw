@@ -80,12 +80,14 @@ func main() {
 	//
 	// Configurando sincronizador de credenciais
 	//
-	var loader credential.CredentialLoader
-	credentialsConfig := v1.GetStringMapString("credentials")
-	//	sourceReloadInterval := source["reload"]
-	***REMOVED***val, _ := strconv.Atoi(credentialsConfig["reload"])
-	//	***REMOVED***val,_ := strconv.Atoi(sourceReloadInterval)
 
+	credentialsConfig := v1.GetStringMapString("credentials")
+
+	***REMOVED***val, _ := strconv.Atoi(credentialsConfig["reload"])
+
+
+	// Loader Interface
+	var loader credential.CredentialLoader
 	if ***REMOVED***val < 10 {
 		log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
 	}
@@ -111,31 +113,49 @@ func main() {
 
 	//Carregando permissões iniciais
 	credentialMap := credential.New(loader)
+
 	// Iniciando o reconciliador de credenciais com o loader csv
 
 	go credentialMap.Sched(time.Duration(***REMOVED***val), loader)
 
 	//
-	// Carregando chaves de assinatura e hostname issuer do jwt
+	// Configurando o JWT Handler
 	//
 	jwtconf := v1.GetStringMapString("jwt")
-	privKeyPath := jwtconf["rsaprivatefile"]
-	localIssuer := jwtconf["localIssuer"]
 
+	// Chave de assinatura dos tokens emitidos pelo GW
+	privKeyPath := jwtconf["rsaprivatefile"]
 	signBytes, err := ioutil.ReadFile(privKeyPath)
+	issuersConf := jwtconf["issuers"]
+
+	//jwks := jwthandler.BuildJWKS(issuersConf)
+
 	fatal(err)
 
-	//
-	//signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
-	//fatal(err)
+	// Issuer usado pelo GW
+	localIssuer := jwtconf["localIssuer"]
+
+
+	// Iniciando o gerenciador JWT
 	myJwtHandler := jwthandler.New(signBytes, localIssuer)
 
-	// Dados de configuracao do Cache
+	//
+	// Configurando o Cache de assinaturas para o authorizador
 	cacheConf := v1.GetStringMap("cache")
 	cleanup := cacheConf["cleanup"].(int)
 	expiration := cacheConf["expiration"].(int)
 	cacheCleanupTime := time.Duration(int64(cleanup))
 	cacheExpirationTime := time.Duration(int64(expiration))
+
+
+	//
+	// Inicializando Servidor de Autorizacao
+	// Injetando cache de tokens, base de credenciais e gerenciador de JWT
+	authServer := &AuthorizationServer{
+		cache:         cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
+		credentialMap: credentialMap,
+		jwtinstance:   myJwtHandler,
+	}
 
 	// create a TCP listener on port 4000
 	lis, err := net.Listen("tcp", ":4000")
@@ -146,12 +166,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	//Inicializando Servidor de Autorizacao
-	authServer := &AuthorizationServer{
-		cache:         cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
-		credentialMap: credentialMap,
-		jwtinstance:   myJwtHandler,
-	}
+	// Registrando o servidor de autenticacao no servidor GRPC
 	auth.RegisterAuthorizationServer(grpcServer, authServer)
 
 	if err := grpcServer.Serve(lis); err != nil {

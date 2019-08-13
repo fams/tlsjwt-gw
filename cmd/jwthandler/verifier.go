@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 type Response struct {
@@ -24,7 +25,7 @@ type JSONWebKeys struct {
 }
 
 // getIssuerCerts Recupera os JWKs por issuer e retorna o
-func getIssuerCerts(url string) (*Jwks, error) {
+func getJwksfromUrl(url string) (*Jwks, error) {
 
 	resp, err := http.Get(fmt.Sprintf(url))
 
@@ -40,6 +41,29 @@ func getIssuerCerts(url string) (*Jwks, error) {
 		return &Jwks{}, err
 	}
 	return jwks, nil
+}
+// getIssuerCerts Recupera os JWKs por issuer e retorna o
+func getJwksfromFile(path string) (*Jwks, error) {
+
+
+	fileReader, err := os.Open(path)
+
+	if err != nil {
+		return &Jwks{}, err
+	}
+
+
+	var jwks = &Jwks{}
+	err = json.NewDecoder(fileReader).Decode(jwks)
+
+	if err != nil {
+		return &Jwks{}, err
+	}
+	return jwks, nil
+}
+
+func BuildJWKS(){
+
 }
 
 // Options is a struct for specifying configuration options for the middleware.

@@ -126,7 +126,7 @@ func main() {
 	// Chave de assinatura dos tokens emitidos pelo GW
 	privKeyPath := jwtconf["rsaprivatefile"]
 	signBytes, err := ioutil.ReadFile(privKeyPath)
-	issuersConf := jwtconf["issuers"]
+	//issuersConf := jwtconf["issuers"]
 
 	//jwks := jwthandler.BuildJWKS(issuersConf)
 

@@ -44,7 +44,7 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission) (stri
 		claims, okClaim := a.credentialMap.Validate(permission)
 		// Se retornou ok, carrega as claims no jwt
 		if len(permission.Fingerprint) == 64 && okClaim {
-			log.Debugf("Valid fingerprint %s for path: %s ", permission.Fingerprint, permission.Scope)
+			log.Debugf("Fingerprint %s valida para scope: %s ", permission.Fingerprint, permission.Scope)
 
 			// Build token
 			tokenString, err := a.jwtinstance.SignToken(claims.Audience, 60)
@@ -84,7 +84,8 @@ func FromFingerprintHeader(FingerprintHeader string) (string, error) {
 	}
 
 	FingerprintHeaderParts := strings.Split(FingerprintHeader, "=")
-	if len(FingerprintHeaderParts) != 2 || strings.ToLower(FingerprintHeaderParts[0]) != "Hash" {
+	//log.Debugf("Fingerprint: %s",FingerprintHeader)
+	if len(FingerprintHeaderParts) != 2 || strings.ToLower(FingerprintHeaderParts[0]) != "hash" {
 		return "", errors.New("Fingerprint header format must be Hash={fingerprint}")
 	}
 
@@ -120,6 +121,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	}
 
 	fingerprint, fingerprintErr := FromFingerprintHeader(clientCertHeader)
+	log.Debugf("Fingerprint: %s recebido\n Error: %v",fingerprint,fingerprintErr)
 
 	//Se tiver um fingerprint permitido Gera os JWT e repassa
 	if fingerprintErr == nil || len(fingerprint) > 0 {
@@ -163,7 +165,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 				Status: &envoytype.HttpStatus{
 					Code: envoytype.StatusCode_Unauthorized,
 				},
-				Body: "Not valid fingerprint",
+				Body: "<em>TLSGW: Not valid fingerprint<em>",
 			},
 		},
 	}, nil

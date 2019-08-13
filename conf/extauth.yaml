@@ -4,3 +4,4 @@ credentials:
   reload: 60
 jwt:
   rsaPrivateFile: extauth.rsa
+  localIssuer: tlsgw.local

@@ -47,16 +47,16 @@ func main() {
 		},
 		"jwt": map[string]string{
 			"rsaPrivateFile": "/auth/extauth.rsa",
-			"localIssuer":    "uat-service.meiosdepagamentointer.com.br",
+			"localIssuer":    "tlsgw.local",
 			"issuers": "{" +
-				"\"iss\":\"uat-service.meiosdepagamentointer.com.br\", " +
+				"\"iss\":\"tlsgw.local\", " +
 				"\"local\":{" +
 				"\"rsaPublicFile\":\"/auth/extauth.rsa.pub\"," +
 				"}," +
 				"{" +
-				"\"iss\":\"uat-oauth.meiosdepagamentointer.com.br\", " +
+				"\"iss\":\"oauth.tlsgw.local\", " +
 				"\"remote\":{" +
-				"\"url\":\"uat-keycloak.meiosdepagamentointer.com.br/uat/.well-known/jwks.json\"," +
+				"\"url\":\"oauth.backend.local/uat/.well-known/jwks.json\"," +
 				"}" +
 				"}",
 		},

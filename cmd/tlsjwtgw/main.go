@@ -35,7 +35,7 @@ func main() {
 	v1, err := c.ReadConfig("extauth", map[string]***REMOVED***face{}{
 		"port":     8080,
 		"hostname": "localhost",
-		"debug":    "info",
+		"loglevel":    "debug",
 		"jwtCache": map[string]***REMOVED***face{}{
 			"expiration": 5,
 			"cleanup":    10,
@@ -47,7 +47,7 @@ func main() {
 		},
 		"jwt": map[string]string{
 			"rsaPrivateFile": "/auth/extauth.rsa",
-			"localIssuer":    "tlsgw.local",
+			"localIssuer": "tlsgw.local",
 			"issuers": "{" +
 				"\"iss\":\"tlsgw.local\", " +
 				"\"local\":{" +
@@ -67,7 +67,7 @@ func main() {
 
 	//
 	// Configurando DEBUG
-	switch v1.GetString("debug") {
+	switch v1.GetString("loglevel") {
 	case "info":
 		log.SetLevel(log.InfoLevel)
 	case "debug":
@@ -95,14 +95,14 @@ func main() {
 	case "csv":
 		var param map[string]***REMOVED***face{}
 		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
-			log.Fatalf("Erro analisando config do provedor de credenciais", err)
+			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
 		}
 		loader = &credential.CsvLoader{param["path"].(string)}
 
 	case "s3":
 		var param map[string]***REMOVED***face{}
 		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
-			log.Fatalf("Erro analisando config do provedor de credenciais", err)
+			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
 		}
 		loader = &credential.S3loader{param["bucket"].(string), param["key"].(string), param["region"].(string)}
 
@@ -133,8 +133,8 @@ func main() {
 	fatal(err)
 
 	// Issuer usado pelo GW
-	localIssuer := jwtconf["localIssuer"]
-
+	localIssuer := jwtconf["localissuer"]
+	log.Debugf("Local Issuer: %s", localIssuer)
 
 	// Iniciando o gerenciador JWT
 	myJwtHandler := jwthandler.New(signBytes, localIssuer)
@@ -162,7 +162,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Infof("listening on %s", lis.Addr())
+	log.Infof("listening on %s ", lis.Addr())//,authServer.jwtinstance.GetConf())
 
 	grpcServer := grpc.NewServer()
 

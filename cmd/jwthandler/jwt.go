@@ -18,20 +18,22 @@ func fatal(err error) {
 }
 
 type JwtHandler struct {
-	signKey *rsa.PrivateKey
-	issuer string
+	signKey     *rsa.PrivateKey
+	localIssuer string
+	AuthorizedIssuers map[string]*Jwks
 }
 
 //
 // Construtor, recebe um []byte com a chave privada para assinar os tokens
-func New(signBytes []byte, issuer string) *JwtHandler {
+func New(signBytes []byte, localIssuer string) *JwtHandler {
 	j := new(JwtHandler)
 	var err error
-	j.issuer = issuer
+	j.localIssuer = localIssuer
 	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	fatal(err)
 	return j
 }
+
 //
 // SignToken gera e assina um jws baseado em uma lista de audiences
 func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (string, error) {
@@ -43,7 +45,7 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 		log.Debugf("Gerando claims para %d audience", len(audiences))
 		claims = jwt.MapClaims{
 			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
-			"iss": j.issuer,
+			"iss": j.localIssuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences,
 		}
@@ -51,7 +53,7 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 	} else {
 		claims = jwt.MapClaims{
 			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
-			"iss": j.issuer,
+			"iss": j.localIssuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences[0],
 		}
@@ -64,4 +66,3 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 
 	return tokenString, err
 }
-

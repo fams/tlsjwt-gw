@@ -2,6 +2,7 @@ package jwthandler
 
 import (
 	"crypto/rsa"
+	"fmt"
 	"github.com/fams/jwt-go"
 	log "github.com/sirupsen/logrus"
 	"time"
@@ -65,4 +66,8 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 	tokenString, err := token.SignedString(j.signKey)
 
 	return tokenString, err
+}
+
+func (j *JwtHandler) GetConf() string{
+	return fmt.Sprintf("Local Issuer: %s\n privKey: %v",j.localIssuer, j.signKey)
 }

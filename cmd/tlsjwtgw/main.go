@@ -113,7 +113,7 @@ func main() {
 	//
 	//signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	//fatal(err)
-	myJwtHandler := jwthandler.New(signBytes)
+	myJwtHandler := jwthandler.New(signBytes, "gwt.processadorainter.local")
 
 	// Dados de configuracao do Cache
 	cacheConf := v1.GetStringMap("cache")

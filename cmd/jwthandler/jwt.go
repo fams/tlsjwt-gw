@@ -3,7 +3,6 @@ package jwthandler
 import (
 	"crypto/rsa"
 	"github.com/fams/jwt-go"
-
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -20,16 +19,21 @@ func fatal(err error) {
 
 type JwtHandler struct {
 	signKey *rsa.PrivateKey
+	issuer string
 }
 
-func New(signBytes []byte) *JwtHandler {
+//
+// Construtor, recebe um []byte com a chave privada para assinar os tokens
+func New(signBytes []byte, issuer string) *JwtHandler {
 	j := new(JwtHandler)
 	var err error
+	j.issuer = issuer
 	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	fatal(err)
 	return j
 }
-
+//
+// SignToken gera e assina um jws baseado em uma lista de audiences
 func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (string, error) {
 	//tokeninzador RS256
 
@@ -39,7 +43,7 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 		log.Debugf("Gerando claims para %d audience", len(audiences))
 		claims = jwt.MapClaims{
 			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
-			"iss": "gwt.processadorainter.local",
+			"iss": j.issuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences,
 		}
@@ -47,7 +51,7 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 	} else {
 		claims = jwt.MapClaims{
 			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
-			"iss": "gwt.processadorainter.local",
+			"iss": j.issuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences[0],
 		}
@@ -61,33 +65,3 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 	return tokenString, err
 }
 
-//func SignToken(audiences []string, signKey *rsa.PrivateKey, lifetime time.Duration) (string, error) {
-//	//tokeninzador RS256
-//
-//	var claims jwt.MapClaims
-//	if len(audiences) > 1 {
-//
-//		log.Debugf("Gerando claims para %d audience", len(audiences))
-//		claims = jwt.MapClaims{
-//			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
-//			"iss": "gwt.processadorainter.local",
-//			"nbf": time.Now().Unix(),
-//			"aud": audiences,
-//		}
-//
-//	} else {
-//		claims = jwt.MapClaims{
-//			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
-//			"iss": "gwt.processadorainter.local",
-//			"nbf": time.Now().Unix(),
-//			"aud": audiences[0],
-//		}
-//	}
-//
-//	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-//
-//	// Sign and get the complete encoded token as a string using the secret
-//	tokenString, err := token.SignedString(signKey)
-//
-//	return tokenString, err
-//}

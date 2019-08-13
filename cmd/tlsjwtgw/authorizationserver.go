@@ -17,7 +17,7 @@ import (
 
 // empty struct because this isn't a fancy example
 type AuthorizationServer struct {
-	cache         *cache.Cache
+	jwtCache      *cache.Cache
 	credentialMap *credential.CredentialMap
 	jwtinstance   *jwthandler.JwtHandler
 }
@@ -31,13 +31,13 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission) (stri
 	hash.WriteString(":")
 	hash.WriteString(permission.Scope)
 
-	cachedToken, found := a.cache.Get(hash.String())
+	cachedToken, found := a.jwtCache.Get(hash.String())
 
 	if found {
 		log.Debug("Cache encontrado ", cachedToken.(string))
 		return cachedToken.(string), true
 	} else {
-		log.Debug("Nao encontrei cache para", hash.String())
+		log.Debug("Nao encontrei jwtCache para", hash.String())
 
 		log.Debugf("Validando fingerprint: %s, scope: %s", permission.Fingerprint, permission.Scope)
 
@@ -53,7 +53,7 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission) (stri
 				log.Errorf("error sign Token: %v", err)
 				return "", false
 			}
-			a.cache.Set(hash.String(), tokenString, cache.DefaultExpiration)
+			a.jwtCache.Set(hash.String(), tokenString, cache.DefaultExpiration)
 			return tokenString, true
 		}
 		return "", false

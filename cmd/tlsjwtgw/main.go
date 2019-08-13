@@ -36,7 +36,7 @@ func main() {
 		"port":     8080,
 		"hostname": "localhost",
 		"debug":    "info",
-		"cache": map[string]***REMOVED***face{}{
+		"jwtCache": map[string]***REMOVED***face{}{
 			"expiration": 5,
 			"cleanup":    10,
 		},
@@ -141,7 +141,7 @@ func main() {
 
 	//
 	// Configurando o Cache de assinaturas para o authorizador
-	cacheConf := v1.GetStringMap("cache")
+	cacheConf := v1.GetStringMap("jwtCache")
 	cleanup := cacheConf["cleanup"].(int)
 	expiration := cacheConf["expiration"].(int)
 	cacheCleanupTime := time.Duration(int64(cleanup))
@@ -150,9 +150,9 @@ func main() {
 
 	//
 	// Inicializando Servidor de Autorizacao
-	// Injetando cache de tokens, base de credenciais e gerenciador de JWT
+	// Injetando jwtCache de tokens, base de credenciais e gerenciador de JWT
 	authServer := &AuthorizationServer{
-		cache:         cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
+		jwtCache:      cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
 		credentialMap: credentialMap,
 		jwtinstance:   myJwtHandler,
 	}

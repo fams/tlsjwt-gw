@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	c "extauth/cmd/config"
 	"extauth/cmd/credential"
 	"extauth/cmd/jwthandler"
@@ -9,10 +8,10 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -23,56 +22,167 @@ func fatal(err error) {
 	}
 }
 
-var (
-//configMap = credential.CredentialMap{} //Mapa com caminhos validos
-//verifyKey  *rsa.PublicKey //public key para auth
-//signKey *rsa.PrivateKey //private key para assinar
+type credentialConf struct {
+	loader         credential.CredentialLoader
+	loaderInterval time.Duration
+	cacheInterval  time.Duration
+	cacheClean     time.Duration
+}
+type issuerConf ***REMOVED***face {
+	iss() string
+	jwks() jwthandler.Jwks
+}
 
-)
+type jwtConf struct {
+	rsaPrivateFile string
+	localIssuer    string
+	Issuers        *[]issuerConf
+}
 
-func main() {
+type gwOptions struct {
+	loglevel     string
+	port         int
+	hostname     string
+	oidc         oidcConf
+	credentialdb *credentialConf
+	jwtConf      *jwtConf
+}
+
+// Default conf
+func defaultConf() (v1 *viper.Viper, err error) {
 	// Definindo Padroes e lendo arquivo de configuracao
-	v1, err := c.ReadConfig("extauth", map[string]***REMOVED***face{}{
+	v1, err = c.ReadConfig("extauth", map[string]***REMOVED***face{}{
 		"port":     8080,
 		"hostname": "localhost",
-		"loglevel":    "debug",
-		"oidc":		 map[string]***REMOVED***face{}{
-			"hostname":"localhost",
-			"path": "/auth",
+		"loglevel": "debug",
+		"oidc": map[string]***REMOVED***face{}{
+			"hostname": "localhost",
+			"path":     "/auth",
 		},
 
 		"credentialCache": map[string]***REMOVED***face{}{
-			"expiration": 5,
-			"cleanup":    10,
+			"expiration": 31,
+			"cleanup":    60,
 		},
 		"credentials": map[string]string{
 			"type":   "csv",
 			"config": "{\"path\": \"/auth/credential\"}",
+			"path":   "/auth/credential",
 			"reload": "60",
 		},
-		"jwt": map[string]string{
+		"jwt": map[string]***REMOVED***face{}{
 			"rsaPrivateFile": "/auth/extauth.rsa",
-			"localIssuer": "tlsgw.local",
-			"issuers": "{" +
-				"\"iss\":\"tlsgw.local\", " +
-				"\"local\":{" +
-				"\"rsaPublicFile\":\"/auth/extauth.rsa.pub\"," +
-				"}," +
-				"{" +
-				"\"iss\":\"oauth.tlsgw.local\", " +
-				"\"remote\":{" +
-				"\"url\":\"oauth.backend.local/uat/.well-known/jwks.json\"," +
-				"}" +
-				"}",
+			"localIssuer":    "tlsgw.local",
+			"issuers": map[string]***REMOVED***face{}{
+				"name1": map[string]***REMOVED***face{}{
+					"iss": "tlsgw.local",
+					"local": map[string]string{
+						"rsaPublicFile": "/auth/extauth.rsa.pub",
+					},
+				},
+				"name2": map[string]***REMOVED***face{}{
+					"iss": "oauth.tlsgw.local",
+					"remote": map[string]string{
+						"url": "oauth.backend.local/uat/.well-known/jwks.json",
+					},
+				},
+			},
 		},
 	})
+	return
+}
+
+func buildOptions() (gwOptions, error) {
+	v1, err := defaultConf()
 	if err != nil {
 		panic(fmt.Errorf("Error when reading config: %v\n", err))
 	}
+	var opt gwOptions
+	opt.hostname = v1.GetString("hostname")
+	opt.port = v1.GetInt("port")
 
+	opt.loglevel = v1.GetString("loglevel")
+	//
+	// Credentials
+	//var cc credentialConf
+	credentialdb := &credentialConf{}
+	opt.credentialdb = credentialdb
+
+	***REMOVED***val := v1.GetInt("credentials.reload")
+	if ***REMOVED***val < 10 {
+		log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
+	}
+
+	opt.credentialdb.loaderInterval = time.Duration(***REMOVED***val)
+
+	switch v1.GetString("credentials.type") {
+	case "csv":
+		//path := v1.GetString("credentials.path")
+		//var param map[string]***REMOVED***face{}
+		if path := v1.GetString("credentials.path"); len(path) < 2 {
+			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
+		} else {
+			opt.credentialdb.loader = &credential.CsvLoader{CsvPath: path}
+		}
+	case "s3":
+		bucket := v1.GetString("credentials.bucket")
+		key := v1.GetString("credentials.key")
+		region := v1.GetString("credentials.region")
+		opt.credentialdb.loader = &credential.S3loader{BucketName: bucket, KeyName: key, Region: region}
+	default:
+		log.Fatal("Nenhum provedor de credenciais configurado")
+	}
+
+	opt.credentialdb.cacheClean = time.Duration(v1.GetInt64("credentialCache.cleanup")) * time.Minute
+	opt.credentialdb.cacheInterval = time.Duration(v1.GetInt64("credentialCache.expiration")) * time.Minute
+	if opt.credentialdb.cacheInterval > opt.credentialdb.cacheClean || opt.credentialdb.cacheInterval < 30 {
+		log.Fatal("Tempo de vida do cache minimo 30s, tempo de limpeza deve ser superior ao tempo de vida")
+	}
+	var jwtConf jwtConf
+	opt.jwtConf = &jwtConf
+	// Chave de assinatura dos tokens emitidos pelo GW
+	opt.jwtConf.rsaPrivateFile = v1.GetString("jwt.rsaprivatefile")
+	opt.jwtConf.localIssuer = v1.GetString("jwt.localIssuer")
+
+	issuers := v1.GetStringMap("jwt.issuers")
+	for k := range issuers {
+		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
+
+		if local := v1.GetStringMapString(fmt.Sprintf("jwt.issuers.%s.local", k)); len(local) > 0 {
+			jwksFile := local["rsaPublicFile"]
+			log.Debugf("Issuer: %s\njwksFile: %s\n", iss, jwksFile)
+		}
+		if remote := v1.GetStringMapString(fmt.Sprintf("jwt.issuers.%s.remote", k)); len(remote) > 0 {
+			url := remote["url"]
+			log.Debugf("Issuer: %s\nurl: %s\n", iss, url)
+		}
+	}
+
+	opt.oidc = oidcConf{v1.GetString("oidc.hostname"), v1.GetString("oidc.path")}
+
+	fatal(err)
+
+	// Issuer usado pelo GW
+	localIssuer := v1.GetString("jwt.localissuer")
+	log.Debugf("Local Issuer: %s", localIssuer)
+
+	return opt, err
+}
+func main() {
+	//v1, err := defaultConf()
+	var (
+		err     error
+		options gwOptions
+	)
+
+	options, err = buildOptions()
+	//fmt.Print(options)
+	if err != nil {
+		panic(fmt.Errorf("Error when reading config: %v\n", err))
+	}
 	//
 	// Configurando DEBUG
-	switch v1.GetString("loglevel") {
+	switch options.loglevel {
 	case "info":
 		log.SetLevel(log.InfoLevel)
 	case "debug":
@@ -81,93 +191,34 @@ func main() {
 		log.SetLevel(log.InfoLevel)
 
 	}
-
-	//
-	// Configurando sincronizador de credenciais
-	//
-
-	credentialsConfig := v1.GetStringMapString("credentials")
-
-	***REMOVED***val, _ := strconv.Atoi(credentialsConfig["reload"])
-
-
-	// Loader Interface
-	var loader credential.CredentialLoader
-	if ***REMOVED***val < 10 {
-		log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
-	}
-	switch credentialsConfig["type"] {
-	case "csv":
-		var param map[string]***REMOVED***face{}
-		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
-			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
-		}
-		loader = &credential.CsvLoader{param["path"].(string)}
-
-	case "s3":
-		var param map[string]***REMOVED***face{}
-		if err := json.Unmarshal([]byte(credentialsConfig["config"]), &param); err != nil {
-			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
-		}
-		loader = &credential.S3loader{param["bucket"].(string), param["key"].(string), param["region"].(string)}
-
-	default:
-		log.Fatal("Nenhum provedor de credenciais configurado")
-
-	}
-
-	//Carregando permissões iniciais
-	credentialMap := credential.New(loader)
-
 	// Iniciando o reconciliador de credenciais com o loader csv
 
-	go credentialMap.Sched(time.Duration(***REMOVED***val), loader)
+	credentialMap := credential.New(options.credentialdb.loader)
+	go credentialMap.Sched(options.credentialdb.loaderInterval, options.credentialdb.loader)
 
 	//
 	// Configurando o JWT Handler
-	//
-	jwtconf := v1.GetStringMapString("jwt")
 
 	// Chave de assinatura dos tokens emitidos pelo GW
-	privKeyPath := jwtconf["rsaprivatefile"]
+	privKeyPath := options.jwtConf.rsaPrivateFile
 	signBytes, err := ioutil.ReadFile(privKeyPath)
-	//issuersConf := jwtconf["issuers"]
-
-	//jwks := jwthandler.BuildJWKS(issuersConf)
-
 	fatal(err)
 
 	// Issuer usado pelo GW
-	localIssuer := jwtconf["localissuer"]
+	localIssuer := options.jwtConf.localIssuer
 	log.Debugf("Local Issuer: %s", localIssuer)
 
 	// Iniciando o gerenciador JWT
 	myJwtHandler := jwthandler.New(signBytes, localIssuer)
 
 	//
-	// Configurando o Cache de assinaturas para o authorizador
-	cacheConf := v1.GetStringMap("credentialCache")
-	cleanup := cacheConf["cleanup"].(int)
-	expiration := cacheConf["expiration"].(int)
-	cacheCleanupTime := time.Duration(int64(cleanup))
-	cacheExpirationTime := time.Duration(int64(expiration))
-
-	// Autenticador Interno
-	oidcParam := v1.GetStringMap("oidc")
-	oidc := oidcConf{oidcParam["hostname"].(string),oidcParam["path"].(string)}
-
-
-
-	//
 	// Inicializando Servidor de Autorizacao
 	// Injetando credentialCache de tokens, base de credenciais e gerenciador de JWT
 	authServer := &AuthorizationServer{
-		credentialCache: cache.New(cacheCleanupTime*time.Minute, cacheExpirationTime*time.Minute),
+		credentialCache: cache.New(options.credentialdb.cacheInterval, options.credentialdb.cacheClean),
 		credentialMap:   credentialMap,
 		jwtinstance:     myJwtHandler,
-		oidc:        &oidc,
-
-
+		oidc:            &options.oidc,
 	}
 
 	// create a TCP listener on port 4000
@@ -175,7 +226,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Infof("listening on %s ", lis.Addr())//,authServer.jwtinstance.GetConf())
+	log.Infof("listening on %s ", lis.Addr()) //,authServer.jwtinstance.GetConf())
 
 	grpcServer := grpc.NewServer()
 

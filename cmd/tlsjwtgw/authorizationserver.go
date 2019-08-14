@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	c "extauth/cmd/config"
 	"extauth/cmd/credential"
 	"extauth/cmd/jwthandler"
 	"fmt"
@@ -20,13 +21,13 @@ type AuthorizationServer struct {
 	credentialCache *cache.Cache
 	credentialMap   *credential.CredentialMap
 	jwtinstance     *jwthandler.JwtHandler
-	oidc 			*oidcConf
+	Oidc 			*c.OidcConf
 }
 
-type oidcConf struct{
-	hostname string
-	path string
-}
+//type oidcConf struct{
+//	hostname string
+//	path string
+//}
 //CacheToken
 
 func (a *AuthorizationServer) BuildToken(permission credential.Permission) (string, bool) {
@@ -115,7 +116,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
 
-	if hostname == a.oidc.hostname && a.oidc.path == path[:len( a.oidc.hostname )]{
+	if hostname == a.Oidc.Hostname && a.Oidc.Path == path[:len( a.Oidc.Hostname )]{
 		log.Debugf("Auth request")
 		return &auth.CheckResponse{
 			Status: &rpc.Status{

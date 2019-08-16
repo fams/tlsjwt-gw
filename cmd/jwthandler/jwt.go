@@ -17,20 +17,22 @@ func fatal(err error) {
 		log.Fatal(err)
 	}
 }
-
 type JwtHandler struct {
 	signKey     *rsa.PrivateKey
 	localIssuer string
 	AuthorizedIssuers map[string]*Jwks
+	//Options	*JwtOptions
 }
 
 //
 // Construtor, recebe um []byte com a chave privada para assinar os tokens
-func New(signBytes []byte, localIssuer string) *JwtHandler {
+func New(signBytes []byte, localIssuer string ) *JwtHandler {
 	j := new(JwtHandler)
 	var err error
 	j.localIssuer = localIssuer
 	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
+	j.AuthorizedIssuers = make(map[string]*Jwks)
+
 	fatal(err)
 	return j
 }
@@ -71,3 +73,4 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 func (j *JwtHandler) GetConf() string{
 	return fmt.Sprintf("Local Issuer: %s\n privKey: %v",j.localIssuer, j.signKey)
 }
+

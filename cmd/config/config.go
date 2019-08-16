@@ -2,7 +2,7 @@ package config
 
 import (
 	"extauth/cmd/credential"
-	"extauth/cmd/jwthandler"
+	//"extauth/cmd/jwthandler"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -16,15 +16,16 @@ type credentialConf struct {
 	CacheInterval  time.Duration
 	CacheClean     time.Duration
 }
-type issuerConf ***REMOVED***face {
-	iss() string
-	jwks() jwthandler.Jwks
-}
+
+//type issuerConf ***REMOVED***face {
+//	iss() string
+//	jwks() jwthandler.Jwks
+//}
 
 type jwtConf struct {
 	RsaPrivateFile string
 	LocalIssuer    string
-	Issuers        *[]issuerConf
+	Issuers        []IssuerConf
 }
 
 type Options struct {
@@ -34,6 +35,7 @@ type Options struct {
 	Oidc         OidcConf
 	Credentialdb *credentialConf
 	JwtConf      *jwtConf
+	EnableOptions bool
 }
 
 type OidcConf struct {
@@ -41,11 +43,17 @@ type OidcConf struct {
 	Path	string
 }
 
-// kill program
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
+//// kill program
+//func fatal(err error) {
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//}
+
+type IssuerConf struct {
+	Issuer   string
+	JwksType string
+	Src      string
 }
 // Default conf
 func DefaultConf() (v1 *viper.Viper, err error) {
@@ -65,7 +73,6 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 		},
 		"credentials": map[string]string{
 			"type":   "csv",
-			"config": "{\"path\": \"/auth/credential\"}",
 			"path":   "/auth/credential",
 			"reload": "60",
 		},
@@ -76,15 +83,15 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 				"name1": map[string]***REMOVED***face{}{
 					"iss": "tlsgw.local",
 					"local": map[string]string{
-						"rsaPublicFile": "/auth/extauth.rsa.pub",
+						"path": "/auth/extauth.rsa.pub",
 					},
 				},
-				"name2": map[string]***REMOVED***face{}{
-					"iss": "oauth.tlsgw.local",
-					"remote": map[string]string{
-						"url": "oauth.backend.local/uat/.well-known/jwks.json",
-					},
-				},
+				//"name2": map[string]***REMOVED***face{}{
+				//	"iss": "oauth.tlsgw.local",
+				//	"remote": map[string]string{
+				//		"url": "oauth.backend.local/uat/.well-known/jwks.json",
+				//	},
+				//},
 			},
 		},
 	})
@@ -155,24 +162,28 @@ func BuildOptions() (Options, error) {
 	// Chave de assinatura dos tokens emitidos pelo GW
 	opt.JwtConf.RsaPrivateFile = v1.GetString("jwt.rsaprivatefile")
 	opt.JwtConf.LocalIssuer = v1.GetString("jwt.localIssuer")
-
+	var i []IssuerConf
+	opt.JwtConf.Issuers = i
 	issuers := v1.GetStringMap("jwt.issuers")
+	//var issAllow  []IssuerConf
 	for k := range issuers {
 		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
-
 		if local := v1.GetStringMapString(fmt.Sprintf("jwt.issuers.%s.local", k)); len(local) > 0 {
-			jwksFile := local["rsaPublicFile"]
+			jwksFile := local["path"]
 			log.Debugf("Issuer: %s\njwksFile: %s\n", iss, jwksFile)
+			opt.JwtConf.Issuers = append(opt.JwtConf.Issuers, IssuerConf{iss, "local", jwksFile})
 		}
+
 		if remote := v1.GetStringMapString(fmt.Sprintf("jwt.issuers.%s.remote", k)); len(remote) > 0 {
 			url := remote["url"]
+			opt.JwtConf.Issuers = append(opt.JwtConf.Issuers, IssuerConf{iss, "remote", url})
 			log.Debugf("Issuer: %s\nurl: %s\n", iss, url)
 		}
 	}
 
 	opt.Oidc = OidcConf{v1.GetString("oidc.hostname"), v1.GetString("oidc.path")}
 
-	fatal(err)
+	//fatal(err)
 
 	// Issuer usado pelo GW
 	localIssuer := v1.GetString("jwt.localissuer")

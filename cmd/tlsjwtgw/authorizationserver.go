@@ -21,7 +21,8 @@ type AuthorizationServer struct {
 	credentialCache *cache.Cache
 	credentialMap   *credential.CredentialMap
 	jwtinstance     *jwthandler.JwtHandler
-	Oidc 			*c.OidcConf
+//	Oidc 			*c.OidcConf
+	Options			*c.Options
 }
 
 //type oidcConf struct{
@@ -101,6 +102,23 @@ func FromFingerprintHeader(FingerprintHeader string) (string, error) {
 // Check verifica o tls fingerprint contra a base corrente e gera o tls fingerprint
 func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest) (*auth.CheckResponse, error) {
 
+	if !a.Options.EnableOptions {
+		if req.Attributes.Request.Http.Method == "OPTIONS" {
+			return &auth.CheckResponse{
+				Status: &rpc.Status{
+					Code: int32(rpc.UNAUTHENTICATED),
+				},
+				HttpResponse: &auth.CheckResponse_DeniedResponse{
+					DeniedResponse: &auth.DeniedHttpResponse{
+						Status: &envoytype.HttpStatus{
+							Code: envoytype.StatusCode_Unauthorized,
+						},
+						Body: "<em>Optons Invalid<em>",
+					},
+				},
+			}, nil
+		}
+	}
 	//Header  com fingerprint de certificado
 	clientCertHeader, _ := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
 
@@ -111,12 +129,13 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	authorizationHeader, _ := req.Attributes.Request.Http.Headers["authorization"]
 
 	//Authorization JWT
-	bearer, bearerErr := FromAuthHeader(authorizationHeader)
+	authz, authzErr := FromAuthHeader(authorizationHeader)
 
+	// Hostname and path to Auth
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
 
-	if hostname == a.Oidc.Hostname && a.Oidc.Path == path[:len( a.Oidc.Hostname )]{
+	if hostname == a.Options.Oidc.Hostname && a.Options.Oidc.Path == path[:len( a.Options.Oidc.Hostname )]{
 		log.Debugf("Auth request")
 		return &auth.CheckResponse{
 			Status: &rpc.Status{
@@ -129,16 +148,34 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	}
 
 	// Se receber um Authorization Valido retorna ok
-	if bearerErr == nil && len(bearer) > 0 {
-		log.Debugf("Received Authorization")
-		return &auth.CheckResponse{
-			Status: &rpc.Status{
-				Code: int32(rpc.OK),
-			},
-			HttpResponse: &auth.CheckResponse_OkResponse{
-				OkResponse: &auth.OkHttpResponse{},
-			},
-		}, nil
+	if authzErr == nil && len(authz) > 0 {
+		ok, err := a.jwtinstance.ValidateJwt(authz)
+		log.Debugf("Received Authorization for: %s, result %s", authz, ok)
+		if ok {
+			return &auth.CheckResponse{
+				Status: &rpc.Status{
+					Code: int32(rpc.OK),
+				},
+				HttpResponse: &auth.CheckResponse_OkResponse{
+					OkResponse: &auth.OkHttpResponse{},
+				},
+			}, nil
+		}else{
+			log.Debugf("Received Error %s",err)
+			return &auth.CheckResponse{
+				Status: &rpc.Status{
+					Code: int32(rpc.UNAUTHENTICATED),
+				},
+				HttpResponse: &auth.CheckResponse_DeniedResponse{
+					DeniedResponse: &auth.DeniedHttpResponse{
+						Status: &envoytype.HttpStatus{
+							Code: envoytype.StatusCode_Unauthorized,
+						},
+						Body: "<em>Optons Invalid<em>",
+					},
+				},
+			}, nil
+		}
 	}
 
 	fingerprint, fingerprintErr := FromFingerprintHeader(clientCertHeader)

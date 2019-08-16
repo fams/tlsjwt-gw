@@ -2,7 +2,11 @@ package jwthandler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/lestrrat-go/jwx"
+	"github.com/fams/jwt-go"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 )
@@ -42,16 +46,15 @@ func getJwksfromUrl(url string) (*Jwks, error) {
 	}
 	return jwks, nil
 }
+
 // getIssuerCerts Recupera os JWKs por issuer e retorna o
 func getJwksfromFile(path string) (*Jwks, error) {
-
 
 	fileReader, err := os.Open(path)
 
 	if err != nil {
 		return &Jwks{}, err
 	}
-
 
 	var jwks = &Jwks{}
 	err = json.NewDecoder(fileReader).Decode(jwks)
@@ -62,7 +65,27 @@ func getJwksfromFile(path string) (*Jwks, error) {
 	return jwks, nil
 }
 
-func BuildJWKS(){
+func (j *JwtHandler) AddJWKS(issuer string, kind string, src string) (e error) {
+	//var getJwks func(string) (*Jwks, error)
+	var (
+		jwks *Jwks
+		err  error
+	)
+
+	switch kind {
+	case "local":
+		jwks, err = getJwksfromFile(src)
+	case "remote":
+		jwks, err = getJwksfromUrl(src)
+	}
+	//jwks, err := getJwks(src)
+	if err != nil {
+		return err
+	}
+
+	j.AuthorizedIssuers[issuer] = jwks
+
+	return nil
 
 }
 
@@ -72,26 +95,63 @@ type Options struct {
 	AuthorizedIssuers []string
 }
 
-// New constroi um novo JWT Handler com as opcoes passadas
-
-//func (j *JwtHandler) New(Options Options) error {
-//	for issuer, _ := range j.AuthorizedIssuers {
-//
-//		jwks, err := getIssuerCerts(issuer)
-//
-//		if err != nil {
-//
-//			return err
-//
-//		}
-//		j.AuthorizedIssuers[issuer] = jwks
-//	}
-//	return nil
-//}
 
 //FIXME
 // ValidateJWt tem de receber um token  validar contra algum dos issuers cadastrados
 
-func (j *JwtHandler) ValidateJwt(token string) (bool, error) {
+func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
+
+
+	// Now parse the token
+	var parsedToken *jwt.Token
+	var err error
+	for issuer, jwks := range j.AuthorizedIssuers {
+		log.Debugf("Check issuer: %s",issuer)
+		parsedToken, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(issuer, false)
+			if !checkIss {
+				return nil, errors.New("Invalid issuer.")
+			}
+			var cert string
+			for k, _ := range jwks.Keys {
+				log.Debugf("token.headers %s jwk.kid: %s",token.Header["kid"],jwks.Keys[k].Kid )
+				if token.Header["kid"] == nil {
+					cert = "-----BEGIN CERTIFICATE-----\n" + jwks.Keys[k].n + "\n-----END CERTIFICATE-----"
+				}
+				if token.Header["kid"] == jwks.Keys[k].Kid {
+					cert = "-----BEGIN CERTIFICATE-----\n" + jwks.Keys[k].X5c[0] + "\n-----END CERTIFICATE-----"
+				}
+			}
+
+			if cert == "" {
+				err := errors.New("Unable to find appropriate key.")
+				return nil, err
+			}
+
+			result, _ := jwt.ParseRSAPublicKeyFromPEM([]byte(cert))
+			return result, nil
+		})
+		if err == nil {
+			break
+		}
+	}
+
+
+	// Check if there was an error in parsing...
+	if err != nil {
+		return false, fmt.Errorf("Error parsing token: %v", err)
+	}
+
+	if jwt.SigningMethodRS256 != parsedToken.Header["alg"] {
+		message := fmt.Sprintf("Expected %s signing method but token specified %s",
+			jwt.SigningMethodRS256,
+			parsedToken.Header["alg"])
+		return false, fmt.Errorf("Error validating token algorithm: %s", message)
+	}
+
+	// Check if the parsed token is valid...
+	if !parsedToken.Valid {
+		return false, errors.New("Token is invalid")
+	}
 	return true, nil
 }

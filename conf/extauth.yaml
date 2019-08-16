@@ -1,8 +1,12 @@
 credentials:
   type: csv
-  config: '{"path": "fingerprints.csv"}'
   reload: 60
   path: fingerprints.csv
 jwt:
   rsaPrivateFile: extauth.rsa
   localIssuer: tlsgw.local
+  issuers:
+    tlsgw:
+      iss: tlsgw.local
+      local:
+        path: jwks.txt

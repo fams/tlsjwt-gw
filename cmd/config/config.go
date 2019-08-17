@@ -52,8 +52,7 @@ type OidcConf struct {
 
 type IssuerConf struct {
 	Issuer   string
-	JwksType string
-	Src      string
+	Url      string
 }
 // Default conf
 func DefaultConf() (v1 *viper.Viper, err error) {
@@ -82,9 +81,7 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 			"issuers": map[string]***REMOVED***face{}{
 				"name1": map[string]***REMOVED***face{}{
 					"iss": "tlsgw.local",
-					"local": map[string]string{
-						"path": "/auth/extauth.rsa.pub",
-					},
+					"url": "file:///auth/extauth.rsa.pub",
 				},
 				//"name2": map[string]***REMOVED***face{}{
 				//	"iss": "oauth.tlsgw.local",
@@ -168,17 +165,8 @@ func BuildOptions() (Options, error) {
 	//var issAllow  []IssuerConf
 	for k := range issuers {
 		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
-		if local := v1.GetStringMapString(fmt.Sprintf("jwt.issuers.%s.local", k)); len(local) > 0 {
-			jwksFile := local["path"]
-			log.Debugf("Issuer: %s\njwksFile: %s\n", iss, jwksFile)
-			opt.JwtConf.Issuers = append(opt.JwtConf.Issuers, IssuerConf{iss, "local", jwksFile})
-		}
-
-		if remote := v1.GetStringMapString(fmt.Sprintf("jwt.issuers.%s.remote", k)); len(remote) > 0 {
-			url := remote["url"]
-			opt.JwtConf.Issuers = append(opt.JwtConf.Issuers, IssuerConf{iss, "remote", url})
-			log.Debugf("Issuer: %s\nurl: %s\n", iss, url)
-		}
+		url := v1.GetString(fmt.Sprintf("jwt.issuers.%s.url", k))
+		opt.JwtConf.Issuers = append(opt.JwtConf.Issuers, IssuerConf{iss, url})
 	}
 
 	opt.Oidc = OidcConf{v1.GetString("oidc.hostname"), v1.GetString("oidc.path")}

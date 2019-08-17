@@ -63,9 +63,9 @@ func main() {
 	// Iniciando o gerenciador JWT
 	myJwtHandler := jwthandler.New(signBytes, localIssuer)
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
-		err := myJwtHandler.AddJWKS(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].JwksType, options.JwtConf.Issuers[i].Src)
+		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {
-			log.Fatalf("Erro carregando JWTconf: %s iss:%s type:%s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].JwksType, options.JwtConf.Issuers[i].Src)
+			log.Fatalf("Erro carregando JWTconf: %s iss:%s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		}
 	}
 	//

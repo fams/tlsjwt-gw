@@ -8,5 +8,6 @@ jwt:
   issuers:
     tlsgw:
       iss: tlsgw.local
+      url: file:///Users/fernando/go/src/tlsjwt-gw/conf/jwks.txt
       local:
         path: jwks.txt

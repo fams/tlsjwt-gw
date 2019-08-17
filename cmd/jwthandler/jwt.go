@@ -18,6 +18,7 @@ func fatal(err error) {
 		log.Fatal(err)
 	}
 }
+
 type JwtHandler struct {
 	signKey     *rsa.PrivateKey
 	localIssuer string
@@ -27,7 +28,8 @@ type JwtHandler struct {
 }
 
 //
-// Construtor, recebe um []byte com a chave privada para assinar os tokens
+// New recebe um []byte com a chave privada para assinar os tokens e o emissor,
+// Retorna o tratador de JWT
 func New(signBytes []byte, localIssuer string ) *JwtHandler {
 	j := new(JwtHandler)
 	var err error
@@ -41,11 +43,13 @@ func New(signBytes []byte, localIssuer string ) *JwtHandler {
 }
 
 //
-// SignToken gera e assina um jws baseado em uma lista de audiences
+// SignToken recebe uma lista de audiences a ser adicionado ao JWT e o tempo de vida do token
+// Retorna um string JWS assinado com a chave privada do tratador de JWT instanciado
 func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (string, error) {
 	//tokeninzador RS256
 
 	var claims jwt.MapClaims
+	// audiences tem tratamento diferente se for singular ou plural, resultando em uma string ou uma lista de strings
 	if len(audiences) > 1 {
 
 		log.Debugf("Gerando claims para %d audience", len(audiences))
@@ -64,7 +68,7 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 			"aud": audiences[0],
 		}
 	}
-
+	// FIXME Assinatura do token, RS256 é HardCoded
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
 	// Sign and get the complete encoded token as a string using the secret

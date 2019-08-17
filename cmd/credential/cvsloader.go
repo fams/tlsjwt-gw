@@ -10,11 +10,10 @@ import (
 )
 
 type CsvLoader struct {
-	//LoadCredentials() (PermissionClaims, bool)
 	CsvPath string
 }
 
-//CsvLoader.LoadCredentials carrega as permissões de um arquivo CVS no formato:
+// LoadCredentials carrega as permissões de um arquivo CVS no formato:
 //fingerprint,path,claim1|claim2
 //Você pode definir varios claims separando por |
 //
@@ -39,7 +38,7 @@ func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 
 		//Cosntruindo array de audiences
 		audiences := strings.Split(line[2], "|")
-		pc[Permission{line[0], line[1]}] = Claims{audiences}
+		pc[Permission{line[0], line[1]}] = AudienceList{audiences}
 	}
 	log.Info("filtros carregados do CSV")
 	return pc, true

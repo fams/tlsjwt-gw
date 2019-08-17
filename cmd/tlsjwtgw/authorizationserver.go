@@ -99,7 +99,12 @@ func FromFingerprintHeader(FingerprintHeader string) (string, error) {
 	return FingerprintHeaderParts[1], nil
 }
 
-// Check verifica o tls fingerprint contra a base corrente e gera o tls fingerprint
+// Check implementa a logica de permissionamento do gw
+// Caso a conexao tenha uma autenticacao mTLS valida e o fingerprint dela for valido no validador,
+// retornara ok com um jws contendo as permissoes ligadas ao fingerprint
+// Se um Bearer token valido for enviado retorna tambem um Ok
+// Se o acesso for para o servidor de autenticacao /auth configurado, o acesso e validado
+// em tods os outros casos a conexao e barrada
 func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest) (*auth.CheckResponse, error) {
 
 	if !a.Options.EnableOptions {
@@ -135,6 +140,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
 
+	// Verificando se o acesso e para o endpoint de autenticacao interno
 	if hostname == a.Options.Oidc.Hostname && a.Options.Oidc.Path == path[:len( a.Options.Oidc.Hostname )]{
 		log.Debugf("Auth request")
 		return &auth.CheckResponse{
@@ -147,7 +153,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		}, nil
 	}
 
-	// Se receber um Authorization Valido retorna ok
+	// Se receber um Bearer token Valido e ele é autorizado, aceita a requisicao nao sendo autorizado retorna unauth
 	if authzErr == nil && len(authz) > 0 {
 		ok, err := a.jwtinstance.ValidateJwt(authz)
 		log.Debugf("Received Authorization for: %s, result %s", authz, ok)
@@ -171,17 +177,18 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 						Status: &envoytype.HttpStatus{
 							Code: envoytype.StatusCode_Unauthorized,
 						},
-						Body: "<em>Optons Invalid<em>",
+						Body: "<em>Invalid JWT<em>",
 					},
 				},
 			}, nil
 		}
 	}
 
+	// Obtem o fingerprint do mTLS
 	fingerprint, fingerprintErr := FromFingerprintHeader(clientCertHeader)
 	log.Debugf("Fingerprint: %s recebido\n Error: %v",fingerprint,fingerprintErr)
 
-	//Se tiver um fingerprint permitido Gera os JWT e repassa
+	//Se tiver um fingerprint permitido Gera o JWT com as permissoes e aceita a requisicao
 	if fingerprintErr == nil || len(fingerprint) > 0 {
 
 		log.Debugf("received fingerprint %s", fingerprint)
@@ -212,7 +219,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			}, nil
 		}
 	}
-	// Sem Authorization ou mTLS retorna falha de autenticacao
+
+	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao
 	log.Debugf("Retornando unauth\n")
 	return &auth.CheckResponse{
 		Status: &rpc.Status{
@@ -223,7 +231,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 				Status: &envoytype.HttpStatus{
 					Code: envoytype.StatusCode_Unauthorized,
 				},
-				Body: "<em>No mTLS ou Oautht<em>",
+				Body: "<em>Unauth access to protected resource<em>",
 			},
 		},
 	}, nil

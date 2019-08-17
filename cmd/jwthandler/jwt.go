@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"github.com/fams/jwt-go"
+	"github.com/lestrrat-go/jwx/jwk"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -21,6 +22,7 @@ type JwtHandler struct {
 	signKey     *rsa.PrivateKey
 	localIssuer string
 	AuthorizedIssuers map[string]*Jwks
+	Jwks        map[string]*jwk.Set
 	//Options	*JwtOptions
 }
 
@@ -31,7 +33,8 @@ func New(signBytes []byte, localIssuer string ) *JwtHandler {
 	var err error
 	j.localIssuer = localIssuer
 	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
-	j.AuthorizedIssuers = make(map[string]*Jwks)
+	//j.AuthorizedIssuers = make(map[string]*Jwks)
+	j.Jwks = make(map[string]*jwk.Set)
 
 	fatal(err)
 	return j

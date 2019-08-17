@@ -17,7 +17,7 @@ type credentialConf struct {
 	CacheClean     time.Duration
 }
 
-//type issuerConf ***REMOVED***face {
+//type issuerConf interface {
 //	iss() string
 //	jwks() jwthandler.Jwks
 //}
@@ -57,16 +57,16 @@ type IssuerConf struct {
 // Default conf
 func DefaultConf() (v1 *viper.Viper, err error) {
 	// Definindo Padroes e lendo arquivo de configuracao
-	v1, err = ReadConfig("extauth", map[string]***REMOVED***face{}{
+	v1, err = ReadConfig("extauth", map[string]interface{}{
 		"port":     8080,
 		"hostname": "localhost",
 		"loglevel": "debug",
-		"oidc": map[string]***REMOVED***face{}{
+		"oidc": map[string]interface{}{
 			"hostname": "localhost",
 			"path":     "/auth",
 		},
 
-		"credentialCache": map[string]***REMOVED***face{}{
+		"credentialCache": map[string]interface{}{
 			"expiration": 31,
 			"cleanup":    60,
 		},
@@ -75,15 +75,15 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 			"path":   "/auth/credential",
 			"reload": "60",
 		},
-		"jwt": map[string]***REMOVED***face{}{
+		"jwt": map[string]interface{}{
 			"rsaPrivateFile": "/auth/extauth.rsa",
 			"localIssuer":    "tlsgw.local",
-			"issuers": map[string]***REMOVED***face{}{
-				"name1": map[string]***REMOVED***face{}{
+			"issuers": map[string]interface{}{
+				"name1": map[string]interface{}{
 					"iss": "tlsgw.local",
 					"url": "file:///auth/extauth.rsa.pub",
 				},
-				//"name2": map[string]***REMOVED***face{}{
+				//"name2": map[string]interface{}{
 				//	"iss": "oauth.tlsgw.local",
 				//	"remote": map[string]string{
 				//		"url": "oauth.backend.local/uat/.well-known/jwks.json",
@@ -95,7 +95,7 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 	return
 }
 
-func ReadConfig(filename string, defaults map[string]***REMOVED***face{}) (*viper.Viper, error) {
+func ReadConfig(filename string, defaults map[string]interface{}) (*viper.Viper, error) {
 
 	v := viper.New()
 	for key, value := range defaults {
@@ -124,17 +124,17 @@ func BuildOptions() (Options, error) {
 	credentialdb := &credentialConf{}
 	opt.Credentialdb = credentialdb
 
-	***REMOVED***val := v1.GetInt("credentials.reload")
-	if ***REMOVED***val < 10 {
+	interval := v1.GetInt("credentials.reload")
+	if interval < 10 {
 		log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
 	}
 
-	opt.Credentialdb.LoaderInterval = time.Duration(***REMOVED***val)
+	opt.Credentialdb.LoaderInterval = time.Duration(interval)
 
 	switch v1.GetString("credentials.type") {
 	case "csv":
 		//path := v1.GetString("credentials.path")
-		//var param map[string]***REMOVED***face{}
+		//var param map[string]interface{}
 		if path := v1.GetString("credentials.path"); len(path) < 2 {
 			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
 		} else {

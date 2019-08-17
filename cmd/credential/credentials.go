@@ -1,3 +1,4 @@
+// Gerencia a base de credenciais que valida o fingerprint do mTLS e define os audiences validos
 package credential
 
 import (
@@ -15,28 +16,35 @@ type CredentialMap struct {
 	wg        *sync.WaitGroup
 }
 
-type CredentialLoader ***REMOVED***face {
+// CredentialLoader e a interface para multiplos provedores de base de permissionamento
+type CredentialLoader interface {
 	LoadCredentials() (PermissionClaims, bool)
 }
 
-//Sched recarrega as credencials de tempos em tempos
-func (tc *CredentialMap) Sched(***REMOVED***val time.Duration, loader CredentialLoader) {
+//Sched recebe um intervalo de acao e uma funcao de recarga das credenciais,
+// Agenda a funcao baseado no intervalo em segundos
+func (tc *CredentialMap) Sched(interval time.Duration, loader CredentialLoader) {
 	rand.Seed(time.Now().Unix())
 
+	// funcao de intervalo de disparo
 	sleep := func() {
-		//time.Sleep((time.Duration(rand.Intn(1000)) * time.Millisecond) + (***REMOVED***val * time.Second))
-		time.Sleep(***REMOVED***val * time.Second)
+		time.Sleep(interval * time.Second)
 	}
+	// obtem um mutex para acesso
 	tc.wg.Add(1)
 	for {
 		sleep()
+		// carrega as credenciais em pc
 		pc, ok := loader.LoadCredentials()
+		// Verifica se as credenciais recebidas nao sao as mesmas em atividade
 		if ok {
 			if !reflect.DeepEqual(tc.mymap[tc.lastepoch], pc) {
 				log.Info("Recbidos novos claims, reconciliando")
+				// Define novo conjunto de credenciais
 				newepoch := tc.lastepoch + 1
 				tc.mymap[newepoch] = pc
-				//area critica
+
+				// Area critica, muda o apontamento das credenciais para o novo conjunto e apaga o 6 mais antigo
 				tc.m.Lock()
 				tc.lastepoch = newepoch
 				tc.m.Unlock()
@@ -46,13 +54,16 @@ func (tc *CredentialMap) Sched(***REMOVED***val time.Duration, loader Credential
 			}
 		} else {
 			tc.wg.Done()
-			log.Fatal("Erro reconciliando")
+			// Fixme deve ser implementado um exponential backoff para a carga de credenciais
+			// Derrubar o validador não é uma opcao
+			log.Error("Erro reconciliando credenciais")
 		}
 	}
 
 }
 
-//init carrega o mapa de permissoes inicial recebendo a funcao de carga inicial
+// Recarga doo mapa de permissoes recebendo a funcao de carga inicial
+// Deprecated
 func (tc *CredentialMap) Init(loader CredentialLoader) {
 	//
 	trustee, ok := loader.LoadCredentials()
@@ -67,7 +78,7 @@ func (tc *CredentialMap) Init(loader CredentialLoader) {
 	}
 }
 
-//init carrega o mapa de permissoes inicial recebendo a funcao de carga inicial
+// Construtor da base de credenciais, gera o mapa na memoria, carrega base inicial e retorna o mapa em si
 func New(loader CredentialLoader) *CredentialMap {
 	//
 	tc := new(CredentialMap)
@@ -85,17 +96,20 @@ func New(loader CredentialLoader) *CredentialMap {
 	return tc
 }
 
-//Validate verifica se o certificado enviado tem permissão no caminho solicitado, retorna os claims
-func (tc *CredentialMap) Validate(perm Permission) (Claims, bool) {
+// Validate recebe uma tupla Permission(fingerprint, scope), verifica se essa permissao existe na base,
+// retorna as claims (audiences) permitidas para esse PermissionClaim
+func (tc *CredentialMap) Validate(permissionClaim Permission) (AudienceList, bool) {
 	//Area Critica
-	log.Debugf("Validando fingerprint %s, path: %s,", perm.Fingerprint, perm.Scope)
+	log.Debugf("Validando fingerprint %s, path: %s,", permissionClaim.Fingerprint, permissionClaim.Scope)
+	//Area Critica detecta qual epoch está valido
 	tc.wg.Add(1)
 	tc.m.RLock()
 	epoch := tc.lastepoch
 	tc.m.RUnlock()
 	tc.wg.Done()
-
-	claims, okClaims := tc.mymap[epoch][perm]
+	// Fixme, nao sei se preciso implementar area critica para leitura do mapa, uma vez
+	//  que ele é sempre gravado para frente
+	claims, okClaims := tc.mymap[epoch][permissionClaim]
 	if okClaims {
 		return claims, true
 	} else {

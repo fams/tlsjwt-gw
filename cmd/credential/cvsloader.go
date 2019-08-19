@@ -23,7 +23,7 @@ func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 		log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.CsvPath, err)
 		return nil, false
 	}
-	defer csvFile.Close()
+
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	pc := PermissionClaims{}
 	for {
@@ -32,15 +32,16 @@ func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 			break
 		} else if err != nil {
 			log.Errorf("Erro lendo credenciais: %s, error: %s", c.CsvPath, err)
+			_ = csvFile.Close()
 			return nil, false
 		}
-		log.Debugf("recebido Fingerprint %s, Scope	: %s, Claim: %s", line[0], line[1], line[2])
+		log.Debugf("lido Fingerprint %s, Scope: %s, Claim: %s", line[0], line[1], line[2])
 
 		//Cosntruindo array de audiences
 		audiences := strings.Split(line[2], "|")
 		pc[Permission{line[0], line[1]}] = AudienceList{audiences}
 	}
 	log.Info("filtros carregados do CSV")
+	_ = csvFile.Close()
 	return pc, true
-
 }

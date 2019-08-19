@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-
 type credentialConf struct {
 	Loader         credential.CredentialLoader
 	LoaderInterval time.Duration
@@ -25,22 +24,23 @@ type credentialConf struct {
 type jwtConf struct {
 	RsaPrivateFile string
 	LocalIssuer    string
+	TokenLifetime  time.Duration
 	Issuers        []IssuerConf
 }
 
 type Options struct {
-	Loglevel     string
-	Port         int
-	Hostname     string
-	Oidc         OidcConf
-	Credentialdb *credentialConf
-	JwtConf      *jwtConf
+	Loglevel      string
+	Port          int
+	Hostname      string
+	Oidc          OidcConf
+	Credentialdb  *credentialConf
+	JwtConf       *jwtConf
 	EnableOptions bool
 }
 
 type OidcConf struct {
 	Hostname string
-	Path	string
+	Path     string
 }
 
 //// kill program
@@ -51,9 +51,10 @@ type OidcConf struct {
 //}
 
 type IssuerConf struct {
-	Issuer   string
-	Url      string
+	Issuer string
+	Url    string
 }
+
 // Default conf
 func DefaultConf() (v1 *viper.Viper, err error) {
 	// Definindo Padroes e lendo arquivo de configuracao
@@ -78,6 +79,7 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 		"jwt": map[string]interface{}{
 			"rsaPrivateFile": "/auth/extauth.rsa",
 			"localIssuer":    "tlsgw.local",
+			"tokenLifetime":  1,
 			"issuers": map[string]interface{}{
 				"name1": map[string]interface{}{
 					"iss": "tlsgw.local",
@@ -159,6 +161,7 @@ func BuildOptions() (Options, error) {
 	// Chave de assinatura dos tokens emitidos pelo GW
 	opt.JwtConf.RsaPrivateFile = v1.GetString("jwt.rsaprivatefile")
 	opt.JwtConf.LocalIssuer = v1.GetString("jwt.localIssuer")
+	opt.JwtConf.TokenLifetime = time.Duration(v1.GetInt64("jwt.tokenLifetime"))
 	var i []IssuerConf
 	opt.JwtConf.Issuers = i
 	issuers := v1.GetStringMap("jwt.issuers")

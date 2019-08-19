@@ -63,13 +63,14 @@ func main() {
 	log.Debugf("Local Issuer: %s", localIssuer)
 
 	// Iniciando o gerenciador JWT
-	myJwtHandler := jwthandler.New(signBytes, localIssuer)
+	myJwtHandler := jwthandler.New(signBytes, localIssuer, options.JwtConf.TokenLifetime)
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {
 			log.Fatalf("Erro carregando JWTconf: %s iss:%s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		}
 	}
+
 	//
 	// Inicializando Servidor de Autorizacao
 	// Injetando credentialCache de tokens, base de credenciais e gerenciador de JWT
@@ -78,7 +79,7 @@ func main() {
 		credentialMap:   credentialMap,
 		jwtinstance:     myJwtHandler,
 		//Oidc:            &options.Oidc,
-		Options:         &options,
+		Options: &options,
 	}
 
 	// create a TCP listener on port 4000

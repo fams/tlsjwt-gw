@@ -21,8 +21,8 @@ type AuthorizationServer struct {
 	credentialCache *cache.Cache
 	credentialMap   *credential.CredentialMap
 	jwtinstance     *jwthandler.JwtHandler
-//	Oidc 			*c.OidcConf
-	Options			*c.Options
+	//	Oidc 			*c.OidcConf
+	Options *c.Options
 }
 
 //type oidcConf struct{
@@ -54,7 +54,7 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission) (stri
 			log.Debugf("Fingerprint %s valida para scope: %s ", permission.Fingerprint, permission.Scope)
 
 			// Build token
-			tokenString, err := a.jwtinstance.SignToken(claims.Audience, 60)
+			tokenString, err := a.jwtinstance.SignToken(claims.Audience)
 
 			if err != nil {
 				log.Errorf("error sign Token: %v", err)
@@ -77,7 +77,7 @@ func FromAuthHeader(authHeader string) (string, error) {
 
 	authHeaderParts := strings.Fields(authHeader)
 	if len(authHeaderParts) != 2 || strings.ToLower(authHeaderParts[0]) != "bearer" {
-		return "", errors.New("Authorization header format must be Bearer {token}")
+		return "", errors.New("authorization header format must be Bearer {token}")
 	}
 
 	return authHeaderParts[1], nil
@@ -93,7 +93,7 @@ func FromFingerprintHeader(FingerprintHeader string) (string, error) {
 	FingerprintHeaderParts := strings.Split(FingerprintHeader, "=")
 	//log.Debugf("Fingerprint: %s",FingerprintHeader)
 	if len(FingerprintHeaderParts) != 2 || strings.ToLower(FingerprintHeaderParts[0]) != "hash" {
-		return "", errors.New("Fingerprint header format must be Hash={fingerprint}")
+		return "", errors.New("fingerprint header format must be Hash={fingerprint}")
 	}
 
 	return FingerprintHeaderParts[1], nil
@@ -128,8 +128,11 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	clientCertHeader, _ := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
 
 	//Header de scopo de claims
-	scopeHeader, _ := req.Attributes.Request.Http.Headers["x-scope-audience"]
-
+	scopeString, _ := req.Attributes.Request.Http.Headers["x-scope-audience"]
+	//Fixme controle de entrada do scope tem de ser melhor que isso
+	if len(scopeString) > 20 {
+		scopeString = ""
+	}
 	//Header JWT de authorizacao
 	authorizationHeader, _ := req.Attributes.Request.Http.Headers["authorization"]
 
@@ -141,7 +144,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	path := req.Attributes.Request.Http.Path
 
 	// Verificando se o acesso e para o endpoint de autenticacao interno
-	if hostname == a.Options.Oidc.Hostname && a.Options.Oidc.Path == path[:len( a.Options.Oidc.Hostname )]{
+	if hostname == a.Options.Oidc.Hostname && a.Options.Oidc.Path == path[:len(a.Options.Oidc.Hostname)] {
 		log.Debugf("Auth request")
 		return &auth.CheckResponse{
 			Status: &rpc.Status{
@@ -166,8 +169,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 					OkResponse: &auth.OkHttpResponse{},
 				},
 			}, nil
-		}else{
-			log.Debugf("Received Error %s",err)
+		} else {
+			log.Debugf("Received Error %s", err)
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
 					Code: int32(rpc.UNAUTHENTICATED),
@@ -186,14 +189,14 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 	// Obtem o fingerprint do mTLS
 	fingerprint, fingerprintErr := FromFingerprintHeader(clientCertHeader)
-	log.Debugf("Fingerprint: %s recebido\n Error: %v",fingerprint,fingerprintErr)
+	log.Debugf("Fingerprint: %s recebido\n Error: %v", fingerprint, fingerprintErr)
 
 	//Se tiver um fingerprint permitido Gera o JWT com as permissoes e aceita a requisicao
 	if fingerprintErr == nil || len(fingerprint) > 0 {
 
 		log.Debugf("received fingerprint %s", fingerprint)
 
-		token, okToken := a.BuildToken(credential.Permission{fingerprint, scopeHeader})
+		token, okToken := a.BuildToken(credential.Permission{Fingerprint: fingerprint, Scope: scopeString})
 
 		if okToken {
 

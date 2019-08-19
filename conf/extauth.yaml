@@ -1,6 +1,6 @@
 credentials:
   type: csv
-  reload: 60
+  reload: 15
   path: fingerprints.csv
 jwt:
   rsaPrivateFile: extauth.rsa

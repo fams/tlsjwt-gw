@@ -22,21 +22,22 @@ func fatal(err error) {
 type JwtHandler struct {
 	signKey           *rsa.PrivateKey
 	localIssuer       string
-	AuthorizedIssuers map[string]*Jwks
+	//AuthorizedIssuers map[string]*Jwks
 	Jwks              map[string]*jwk.Set
 	tokenLifetime     time.Duration
-	//Options	*JwtOptions
+	kid               string
 }
 
 //
 // New recebe um []byte com a chave privada para assinar os tokens e o emissor,
 // Retorna o tratador de JWT
-func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration) *JwtHandler {
+func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration, kid string) *JwtHandler {
 	j := new(JwtHandler)
 	var err error
 	j.localIssuer = localIssuer
 	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	j.tokenLifetime = tokenLifetime
+	j.kid	= kid
 	//j.AuthorizedIssuers = make(map[string]*Jwks)
 	j.Jwks = make(map[string]*jwk.Set)
 
@@ -47,7 +48,7 @@ func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration) *Jwt
 //
 // SignToken recebe uma lista de audiences a ser adicionado ao JWT e o tempo de vida do token
 // Retorna um string JWS assinado com a chave privada do tratador de JWT instanciado
-func (j *JwtHandler) SignToken(audiences []string) (string, error) {
+func (j *JwtHandler) SignToken(audiences []string, clientId string) (string, error) {
 	//tokeninzador RS256
 
 	var claims jwt.MapClaims
@@ -60,6 +61,7 @@ func (j *JwtHandler) SignToken(audiences []string) (string, error) {
 			"iss": j.localIssuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences,
+			"client_id": clientId,
 		}
 
 	} else {
@@ -68,11 +70,14 @@ func (j *JwtHandler) SignToken(audiences []string) (string, error) {
 			"iss": j.localIssuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences[0],
+			"client_id": clientId,
 		}
 	}
 	// FIXME Assinatura do token, RS256 é HardCoded
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
+	//Fixme HACK de kid
+	token.Header["kid"] = j.kid
 	// Sign and get the complete encoded token as a string using the secret
 	tokenString, err := token.SignedString(j.signKey)
 

@@ -21,7 +21,7 @@ func TestCredential(t *testing.T) {
 
 	claim := "param-get"
 	if claims.Audience[0] != claim {
-		t.Errorf("Claim  %s " +
+		t.Errorf("Claim  %s "+
 			"nao encontrado", claim)
 	}
 

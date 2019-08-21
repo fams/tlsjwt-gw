@@ -25,9 +25,8 @@ type JSONWebKeys struct {
 	X5c []string `json:"x5c"`
 }
 
-
 // AddJWK adiciona um JWKS para a lista de issues e chaves publicas permitidas
-func (j *JwtHandler) AddJWK( issuer string, url string )( error){
+func (j *JwtHandler) AddJWK(issuer string, url string) error {
 	set, err := jwk.Fetch(url)
 	if err != nil {
 		return err
@@ -39,19 +38,17 @@ func (j *JwtHandler) AddJWK( issuer string, url string )( error){
 
 }
 
-
 //
 // ValidateJWt recebe um token jwe e valida-o contra as chaves publicas dos issuers cadastrados,
 // retornando true sem erros em caso de tokens permitidos e false com o erro se nao conseguir validar o token
 func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
-
 
 	// Now parse the token
 	var parsedToken *jwt.Token
 	var err error
 	//Testa o token para cada um dos jwks
 	for issuer, set := range j.Jwks {
-		log.Debugf("Check issuer: %s",issuer)
+		log.Debugf("Check issuer: %s", issuer)
 		parsedToken, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(issuer, false)
 			if !checkIss {
@@ -68,7 +65,7 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 				return key, err
 			}
 			// usa o kid para encontrar a chave a ser usada na auteticacao
-			keys := set.LookupKeyID( token.Header["kid"].(string) )
+			keys := set.LookupKeyID(token.Header["kid"].(string))
 			if len(keys) == 0 {
 				msg := fmt.Errorf("failed to lookup key: %s", err)
 				return nil, msg
@@ -85,7 +82,6 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 			break
 		}
 	}
-
 
 	// Se nao for possivel fazer o parse do token retorna falso co o erro de parse
 	if err != nil {

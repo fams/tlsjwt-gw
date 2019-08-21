@@ -37,7 +37,7 @@ func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 
 		//Cosntruindo array de audiences
 		audiences := strings.Split(line[2], "|")
-		pc[Permission{line[0], line[1]}] = AudienceList{audiences}
+		pc[Permission{line[0], line[1]}] = Claims{audiences}
 	}
 	log.Info("filtros carregados do CSV")
 	return pc, true

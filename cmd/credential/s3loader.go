@@ -68,7 +68,7 @@ func (s *S3loader) LoadCredentials() (PermissionClaims, bool) {
 		}
 		for i := 0; i < len(perm.Scopes); i++ {
 			log.Debugf("recebido Fingerprint %s, Scope	: %s, Claim: %s", perm.Fingerprint, perm.Scopes[i].Name, strings.Join(perm.Scopes[i].Audiences[:], "|"))
-			pc[Permission{perm.Fingerprint, perm.Scopes[i].Name}] = AudienceList{perm.Scopes[i].Audiences}
+			pc[Permission{perm.Fingerprint, perm.Scopes[i].Name}] = Claims{perm.Scopes[i].Audiences}
 		}
 	}
 	return pc, true

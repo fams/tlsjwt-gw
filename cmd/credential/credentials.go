@@ -98,7 +98,7 @@ func New(loader CredentialLoader) *CredentialMap {
 
 // Validate recebe uma tupla Permission(fingerprint, scope), verifica se essa permissao existe na base,
 // retorna as claims (audiences) permitidas para esse PermissionClaim
-func (tc *CredentialMap) Validate(permissionClaim Permission) (AudienceList, bool) {
+func (tc *CredentialMap) Validate(permissionClaim Permission) (Claims, bool) {
 	//Area Critica
 	log.Debugf("Validando fingerprint %s, path: %s,", permissionClaim.Fingerprint, permissionClaim.Scope)
 	//Area Critica detecta qual epoch está valido

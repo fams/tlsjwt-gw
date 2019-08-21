@@ -63,7 +63,7 @@ func main() {
 	log.Debugf("Local Issuer: %s", localIssuer)
 
 	// Iniciando o gerenciador JWT
-	myJwtHandler := jwthandler.New(signBytes, localIssuer, options.JwtConf.TokenLifetime)
+	myJwtHandler := jwthandler.New(signBytes, localIssuer, options.JwtConf.TokenLifetime,options.JwtConf.Kid )
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {

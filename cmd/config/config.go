@@ -26,6 +26,7 @@ type jwtConf struct {
 	LocalIssuer    string
 	TokenLifetime  time.Duration
 	Issuers        []IssuerConf
+	Kid            string
 }
 
 type Options struct {
@@ -79,18 +80,13 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 		"jwt": map[string]interface{}{
 			"rsaPrivateFile": "/auth/extauth.rsa",
 			"localIssuer":    "tlsgw.local",
-			"tokenLifetime":  1,
+			"kid":            "",
+			"tokenLifetime":  60,
 			"issuers": map[string]interface{}{
 				"name1": map[string]interface{}{
 					"iss": "tlsgw.local",
 					"url": "file:///auth/extauth.rsa.pub",
 				},
-				//"name2": map[string]interface{}{
-				//	"iss": "oauth.tlsgw.local",
-				//	"remote": map[string]string{
-				//		"url": "oauth.backend.local/uat/.well-known/jwks.json",
-				//	},
-				//},
 			},
 		},
 	})
@@ -161,6 +157,7 @@ func BuildOptions() (Options, error) {
 	// Chave de assinatura dos tokens emitidos pelo GW
 	opt.JwtConf.RsaPrivateFile = v1.GetString("jwt.rsaprivatefile")
 	opt.JwtConf.LocalIssuer = v1.GetString("jwt.localIssuer")
+	opt.JwtConf.Kid			= v1.GetString("jwt.kid")
 	opt.JwtConf.TokenLifetime = time.Duration(v1.GetInt64("jwt.tokenLifetime"))
 	var i []IssuerConf
 	opt.JwtConf.Issuers = i

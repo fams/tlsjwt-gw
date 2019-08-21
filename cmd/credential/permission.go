@@ -6,8 +6,8 @@ type Permission struct {
 }
 
 //Audiences a serem adicionadas
-type AudienceList struct {
+type Claims struct {
 	Audience []string
 }
 
-type PermissionClaims map[Permission]AudienceList
+type PermissionClaims map[Permission]Claims

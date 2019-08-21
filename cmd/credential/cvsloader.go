@@ -14,8 +14,8 @@ type CsvLoader struct {
 }
 
 // LoadCredentials carrega as permissões de um arquivo CVS no formato:
-//fingerprint,path,claim1|claim2
-//Você pode definir varios claims separando por |
+// fingerprint,path,claim1|claim2
+// Você pode definir varios claims separando por |
 //
 func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 	csvFile, err := os.Open(c.CsvPath)

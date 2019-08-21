@@ -14,8 +14,8 @@ type CsvLoader struct {
 }
 
 // LoadCredentials carrega as permissões de um arquivo CVS no formato:
-//fingerprint,path,claim1|claim2
-//Você pode definir varios claims separando por |
+// fingerprint,path,claim1|claim2
+// Você pode definir varios claims separando por |
 //
 func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 	csvFile, err := os.Open(c.CsvPath)
@@ -23,7 +23,6 @@ func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 		log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.CsvPath, err)
 		return nil, false
 	}
-	defer csvFile.Close()
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	pc := PermissionClaims{}
 	for {
@@ -34,7 +33,7 @@ func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 			log.Errorf("Erro lendo credenciais: %s, error: %s", c.CsvPath, err)
 			return nil, false
 		}
-		log.Debugf("recebido Fingerprint %s, Scope	: %s, Claim: %s", line[0], line[1], line[2])
+		log.Debugf("lido Fingerprint %s, Scope: %s, Claim: %s", line[0], line[1], line[2])
 
 		//Cosntruindo array de audiences
 		audiences := strings.Split(line[2], "|")
@@ -42,5 +41,4 @@ func (c *CsvLoader) LoadCredentials() (PermissionClaims, bool) {
 	}
 	log.Info("filtros carregados do CSV")
 	return pc, true
-
 }

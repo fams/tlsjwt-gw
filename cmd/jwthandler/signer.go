@@ -20,21 +20,23 @@ func fatal(err error) {
 }
 
 type JwtHandler struct {
-	signKey     *rsa.PrivateKey
-	localIssuer string
+	signKey           *rsa.PrivateKey
+	localIssuer       string
 	AuthorizedIssuers map[string]*Jwks
-	Jwks        map[string]*jwk.Set
+	Jwks              map[string]*jwk.Set
+	tokenLifetime     time.Duration
 	//Options	*JwtOptions
 }
 
 //
 // New recebe um []byte com a chave privada para assinar os tokens e o emissor,
 // Retorna o tratador de JWT
-func New(signBytes []byte, localIssuer string ) *JwtHandler {
+func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration) *JwtHandler {
 	j := new(JwtHandler)
 	var err error
 	j.localIssuer = localIssuer
 	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
+	j.tokenLifetime = tokenLifetime
 	//j.AuthorizedIssuers = make(map[string]*Jwks)
 	j.Jwks = make(map[string]*jwk.Set)
 
@@ -45,7 +47,7 @@ func New(signBytes []byte, localIssuer string ) *JwtHandler {
 //
 // SignToken recebe uma lista de audiences a ser adicionado ao JWT e o tempo de vida do token
 // Retorna um string JWS assinado com a chave privada do tratador de JWT instanciado
-func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (string, error) {
+func (j *JwtHandler) SignToken(audiences []string) (string, error) {
 	//tokeninzador RS256
 
 	var claims jwt.MapClaims
@@ -54,7 +56,7 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 
 		log.Debugf("Gerando claims para %d audience", len(audiences))
 		claims = jwt.MapClaims{
-			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
+			"exp": time.Now().Add(time.Minute * j.tokenLifetime).Unix(),
 			"iss": j.localIssuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences,
@@ -62,7 +64,7 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 
 	} else {
 		claims = jwt.MapClaims{
-			"exp": time.Now().Add(time.Minute * lifetime).Unix(),
+			"exp": time.Now().Add(time.Minute * j.tokenLifetime).Unix(),
 			"iss": j.localIssuer,
 			"nbf": time.Now().Unix(),
 			"aud": audiences[0],
@@ -77,7 +79,6 @@ func (j *JwtHandler) SignToken(audiences []string, lifetime time.Duration) (stri
 	return tokenString, err
 }
 
-func (j *JwtHandler) GetConf() string{
-	return fmt.Sprintf("Local Issuer: %s\n privKey: %v",j.localIssuer, j.signKey)
+func (j *JwtHandler) GetConf() string {
+	return fmt.Sprintf("Local Issuer: %s\n privKey: %v", j.localIssuer, j.signKey)
 }
-

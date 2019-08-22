@@ -41,52 +41,52 @@ debug: todos os passos da autenticação
 
 ## oidc
 Parametros para o OIDC atrás do GW
-###hostname
+### hostname
 endpoint do emissord de tokens
 ### path
 Caminho do endpoint de emissão de tokens
 
-##credentialCache
+## credentialCache
 Atenção! o tempo de expiração deve ser menor que o de limpeza e ambos devem ser menores que o tempo de expiraçãod do token
-###expiration
+### expiration
 Tempo em segundos para uma jwt assinado expirar no GW
 
-###cleanup
+### cleanup
 Tempo em segundos para limpeza do cache de tokens
 
-##credentials
+## credentials
 Base de credenciais podendo ser CSV ou json
 
-###type
+### type
 csv ou s3
 
-###reload
+### reload
 intervalo de reconciliação da base de credenciais
 ## configuração com S3
-###bucket
+### bucket
 Nome do bucket com as credenciais
-###key
+### key
 caminho no bucket do json de credenciais
-###region
+### region
 Região S3
 
 ## Configuracão com CSV
-###path
+### path
 Caminho do csv com as credenciais
 
-##jwt:
+## jwt:
 Configuração do emissor de tokens
-###rsaPrivateFile
+### rsaPrivateFile
 Chave privada para emissão
 
-###localIssuer
+### localIssuer
 Hostname a ser utilizado como issuer
 
-###kid
+### kid
 key identitiy, hint para o GW encontrar a chave pública de validação no JWKS
-###tokenLifetime
+### tokenLifetime
 Tempo de expiração do token
-###issuers
+### issuers
 Configuração dos issuers permitidos de passar pelo GW sem mTLS
 
 Formato de cada entrada segue o padrão

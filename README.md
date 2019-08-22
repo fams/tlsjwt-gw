@@ -26,6 +26,6 @@ docker build https://github.com/fams/tlsjwt-gw.git
 
 #Configuração
 A configuração é feita em arquivo yaml ou json com nome extauth.json ou extauth.yaml residente no mesmo diretorio do autenticador
-Detalhes em [configuração](https://github.com/fams/tlsjwt-gw/docs/config.md)
+Detalhes em [configuração](https://github.com/fams/tlsjwt-gw/blob/master/docs/config.md)
 
 

@@ -96,10 +96,10 @@ Nome:
     url: caminho do jwks, pode ser file:// ou https://
 ```
 
-#Credentials
+# Credentials
 A base de credenciais pode ter dois formatos csv local ou json S3
 
-##CSV
+## CSV
 O primeiro campo é o fingerprint do certificado, o segundo é o escopo das audiences e o ultimo as audiences separadas por |
 
 Exemplo:
@@ -112,7 +112,7 @@ Exemplo:
 
 
 
-##JSON
+## JSON
 O Json é uma estrutrua contendo fingerprint|scopes. scopes contem name|audiences, audiences é uma lista
 
 Exemplo:

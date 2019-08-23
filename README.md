@@ -13,7 +13,7 @@ External Auth para o envoy que transforma uma chamada mTLS em um JWT assinado co
 
 Layout
 
-<img src="https://github.com/fams/tlsjwt-gw/raw/master/docs/tlsgw.png" width="100">
+<img alt="layout do extauth" src="https://github.com/fams/tlsjwt-gw/raw/master/docs/tlsgw.png" width="100">
 
 # Compilação e Configuração
 
@@ -24,7 +24,7 @@ Para compilar:
 docker build https://github.com/fams/tlsjwt-gw.git
 ```
 
-#Configuração
+# Configuração
 A configuração é feita em arquivo yaml ou json com nome extauth.json ou extauth.yaml residente no mesmo diretorio do autenticador
 Detalhes em [configuração](https://github.com/fams/tlsjwt-gw/blob/master/docs/config.md)
 

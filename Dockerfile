@@ -11,5 +11,6 @@ RUN CGO_ENABLED=0 GOOOS=linux go build  -o ext-auth-poc /build/cmd/tlsjwtgw/*.go
 
 FROM alpine:latest
 WORKDIR /
+RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
 COPY --from=builder /build/ext-auth-poc .
 CMD ["./ext-auth-poc"]

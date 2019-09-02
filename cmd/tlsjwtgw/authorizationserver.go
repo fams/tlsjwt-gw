@@ -228,11 +228,12 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	}
 
 	// Obtem o fingerprint do mTLS
+	// FIXME check de ta
 	certParts, certPartsErr := FromClientCertHeader(clientCertHeader)
 
 
 	//Se tiver um fingerprint permitido Gera o JWT com as permissoes e aceita a requisicao
-	if certPartsErr == nil || len(certParts.hash) > 0 {
+	if certPartsErr == nil && len(certParts.hash) > 0 {
 		log.Debugf("Fingerprint: %s recebido", certParts.hash)
 		var cn string
 		var err error

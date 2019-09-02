@@ -94,7 +94,9 @@ func (chp *ClientcertHeaderParts) GetCn() (string,error){
 	s, _ := strconv.Unquote(string(chp.subject))
 
 	parts := strings.Split(s,",")
-
+	if len(parts) < 1 {
+		return "", fmt.Errorf("Invalid CN")
+	}
 	if strings.ToLower(parts[0][0:2]) == "cn" {
 		return parts[0][3:],nil
 	}else{
@@ -155,7 +157,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 						Status: &envoytype.HttpStatus{
 							Code: envoytype.StatusCode_Unauthorized,
 						},
-						Body: "<em>Optons Invalid<em>",
+						Body: "<em>Options Invalid<em>",
 					},
 				},
 			}, nil

@@ -183,9 +183,11 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	// Hostname and path to Auth
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
+	log.Debugf("OIDC, hostname: %s, path: %s",hostname,path)
 
 	// Verificando se o acesso e para o endpoint de autenticacao interno
-	if hostname == a.Options.Oidc.Hostname && a.Options.Oidc.Path == path[:len(a.Options.Oidc.Hostname)] {
+
+	if hostname == a.Options.Oidc.Hostname && len(path) > len(a.Options.Oidc.Path) && a.Options.Oidc.Path == path[:len(a.Options.Oidc.Path)] {
 		log.Debugf("Auth request")
 		return &auth.CheckResponse{
 			Status: &rpc.Status{

@@ -86,23 +86,24 @@ func FromAuthHeader(authHeader string) (string, error) {
 }
 
 type ClientcertHeaderParts struct {
-	hash string
+	hash    string
 	subject string
 }
 
-func (chp *ClientcertHeaderParts) GetCn() (string,error){
+func (chp *ClientcertHeaderParts) GetCn() (string, error) {
 	s, _ := strconv.Unquote(string(chp.subject))
 
-	parts := strings.Split(s,",")
+	parts := strings.Split(s, ",")
 	if len(parts) < 1 {
 		return "", fmt.Errorf("Invalid CN")
 	}
 	if strings.ToLower(parts[0][0:2]) == "cn" {
-		return parts[0][3:],nil
-	}else{
-		return "",fmt.Errorf("String:%s",s)
+		return parts[0][3:], nil
+	} else {
+		return "", fmt.Errorf("String:%s", s)
 	}
 }
+
 // FromFingerprint extrai os dados do certificao header x-forwarded-client-cert exportado pelo mTLS
 
 func FromClientCertHeader(FingerprintHeader string) (*ClientcertHeaderParts, error) {
@@ -115,18 +116,18 @@ func FromClientCertHeader(FingerprintHeader string) (*ClientcertHeaderParts, err
 
 	HeadersParts := strings.Split(FingerprintHeader, ";")
 
-	log.Debugf("Certtificate Header: %s, subjetct: %s",HeadersParts[0],HeadersParts[1])
+	log.Debugf("Certtificate Header: %s, subjetct: %s", HeadersParts[0], HeadersParts[1])
 
 	if len(HeadersParts) != 2 {
-		return CertParts,fmt.Errorf("String de certificado com partes erradas")
+		return CertParts, fmt.Errorf("String de certificado com partes erradas")
 	}
 
-	for i:=0; i< len(HeadersParts) ; i++ {
+	for i := 0; i < len(HeadersParts); i++ {
 		if strings.ToLower(HeadersParts[i][0:4]) == "hash" {
-		 	parts := strings.Split(HeadersParts[i],"=")
-		 	if len(parts)<2 {
+			parts := strings.Split(HeadersParts[i], "=")
+			if len(parts) < 2 {
 				return CertParts, errors.New("fingerprint header format must be Hash={fingerprint}")
-			}else{
+			} else {
 				CertParts.hash = parts[1]
 			}
 		}
@@ -231,17 +232,16 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	// FIXME check de ta
 	certParts, certPartsErr := FromClientCertHeader(clientCertHeader)
 
-
 	//Se tiver um fingerprint permitido Gera o JWT com as permissoes e aceita a requisicao
 	if certPartsErr == nil && len(certParts.hash) > 0 {
 		log.Debugf("Fingerprint: %s recebido", certParts.hash)
 		var cn string
 		var err error
-		if cn, err = certParts.GetCn();err!=nil{
+		if cn, err = certParts.GetCn(); err != nil {
 			cn = ""
 		}
 
-		token, okToken := a.BuildToken(credential.Permission{Fingerprint: certParts.hash, Scope: scopeString},cn)
+		token, okToken := a.BuildToken(credential.Permission{Fingerprint: certParts.hash, Scope: scopeString}, cn)
 
 		if okToken {
 
@@ -266,6 +266,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 				},
 			}, nil
 		}
+	}else{
+		log.Debugf("Error %v",certPartsErr)
 	}
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao

@@ -195,7 +195,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	log.Debugf("OIDC, hostname: %s, path: %s",hostname,path)
 
 	// Verificando se o request e destinado ao endpoint de autenticacao interno
-	// FIXME necessario um bloco de retorno unico com case
+	//FIXME necessario um bloco de retorno unico com case
 	// Caso Allowed sem modificacao
 	if hostname == a.Options.Oidc.Hostname && len(path) > len(a.Options.Oidc.Path) && a.Options.Oidc.Path == path[:len(a.Options.Oidc.Path)] {
 		log.Debugf("Auth request")
@@ -215,7 +215,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		log.Debugf("Received Authorization for: %s, result %v", authz, ok)
 		// Response ok par token valido e false para token invalido
 		if ok {
-			// FIXME necessario um bloco de retorno unico com case
+			//FIXME necessario um bloco de retorno unico com case
 			// Caso Allowed sem modificacao
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
@@ -227,7 +227,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			}, nil
 		} else {
 			log.Debugf("Received Error %s", err)
-			// FIXME necessario um bloco de retorno unico com case
+			//FIXME necessario um bloco de retorno unico com case
 			// Caso UNAUTHENTICATED com Body custom
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
@@ -246,7 +246,6 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	}
 
 	// Obtem o fingerprint do mTLS
-	// FIXME check de ta
 	certParts, certPartsErr := FromClientCertHeader(clientCertHeader)
 
 	//Se tiver um fingerprint permitido Gera o JWT com as permissoes e aceita a requisicao
@@ -267,7 +266,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			tokenSha := fmt.Sprintf("Bearer %s", token)
 
 			log.Debugf("Build token: %s", tokenSha)
-			// FIXME necessario um bloco de retorno unico com case
+			//FIXME necessario um bloco de retorno unico com case
 			// Caso UNAUTHENTICATED com Header Custom
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
@@ -293,7 +292,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao
 	log.Debugf("Retornando unauth\n")
-	// FIXME necessario um bloco de retorno unico com case
+	//FIXME necessario um bloco de retorno unico com case
 	// Caso UNAUTHENTICATED com Body Custom
 	return &auth.CheckResponse{
 		Status: &rpc.Status{

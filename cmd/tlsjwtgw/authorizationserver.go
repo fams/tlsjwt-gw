@@ -70,8 +70,8 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission, clien
 	}
 }
 
-// FromAuthHeader is a "TokenExtractor" that takes a give request and extracts
-// the JWT token from the Authorization header.
+// FromAuthHeader is a "TokenExtractor" that takes a given Authorization Header and extracts
+// the JWT token
 func FromAuthHeader(authHeader string) (string, error) {
 	if authHeader == "" {
 		return "", nil // No error, just no token
@@ -106,27 +106,26 @@ func (chp *ClientcertHeaderParts) GetCn() (string, error) {
 
 // FromFingerprint extrai os dados do certificao header x-forwarded-client-cert exportado pelo mTLS
 
-func FromClientCertHeader(FingerprintHeader string) (*ClientcertHeaderParts, error) {
+func FromClientCertHeader(ClientcertHeader string) (*ClientcertHeaderParts, error) {
+
 	//var CertParts *ClientcertHeaderParts
 	CertParts := new(ClientcertHeaderParts)
 
-	if FingerprintHeader == "" {
+	if ClientcertHeader == "" {
 		return CertParts, nil // No error, just no token
 	}
 
-	HeadersParts := strings.Split(FingerprintHeader, ";")
-
-	log.Debugf("Certtificate Header: %s, subjetct: %s", HeadersParts[0], HeadersParts[1])
-
+	HeadersParts := strings.Split(ClientcertHeader, ";")
 	if len(HeadersParts) != 2 {
-		return CertParts, fmt.Errorf("String de certificado com partes erradas")
+		return CertParts, fmt.Errorf("Certificate Information Header invalid")
 	}
+	log.Debugf("Certificate Header: %s, subjetct: %s", HeadersParts[0], HeadersParts[1])
 
 	for i := 0; i < len(HeadersParts); i++ {
 		if strings.ToLower(HeadersParts[i][0:4]) == "hash" {
 			parts := strings.Split(HeadersParts[i], "=")
 			if len(parts) < 2 {
-				return CertParts, errors.New("fingerprint header format must be Hash={fingerprint}")
+				return CertParts, errors.New("Fingerprint header format must be Hash={fingerprint}")
 			} else {
 				CertParts.hash = parts[1]
 			}
@@ -135,8 +134,13 @@ func FromClientCertHeader(FingerprintHeader string) (*ClientcertHeaderParts, err
 			subject_string := HeadersParts[i][8:]
 			CertParts.subject = subject_string
 		}
+
 	}
-	return CertParts, nil
+	if len(CertParts.hash) > 1 && len(CertParts.subject) > 1 {
+		return CertParts, nil
+	}else{
+		return CertParts, fmt.Errorf("Certificate Information Header invalid")
+	}
 }
 
 // Check implementa a logica de permissionamento do gw
@@ -147,6 +151,9 @@ func FromClientCertHeader(FingerprintHeader string) (*ClientcertHeaderParts, err
 // em tods os outros casos a conexao e barrada
 func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest) (*auth.CheckResponse, error) {
 
+	// Return fail for Options
+	//FIXME Preciso construir um bloco unico de respostas com case para result
+	// Caso UNAUTHENTICATED com Body customizado
 	if !a.Options.EnableOptions {
 		if req.Attributes.Request.Http.Method == "OPTIONS" {
 			return &auth.CheckResponse{
@@ -164,7 +171,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			}, nil
 		}
 	}
-	//Header  com fingerprint de certificado
+
+	//Header com fingerprint dos dados do certificado
 	clientCertHeader, _ := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
 	log.Debugf(clientCertHeader)
 
@@ -174,19 +182,21 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	if len(scopeString) > 20 {
 		scopeString = ""
 	}
-	//Header JWT de authorizacao
+	//Header JWT de autorizacao
 	authorizationHeader, _ := req.Attributes.Request.Http.Headers["authorization"]
 
-	//Authorization JWT
+	//Recupera o JWT
 	authz, authzErr := FromAuthHeader(authorizationHeader)
 
-	// Hostname and path to Auth
+	// Obtem o HOSTNAME e o PATH da request
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
+
 	log.Debugf("OIDC, hostname: %s, path: %s",hostname,path)
 
-	// Verificando se o acesso e para o endpoint de autenticacao interno
-
+	// Verificando se o request e destinado ao endpoint de autenticacao interno
+	// FIXME necessario um bloco de retorno unico com case
+	// Caso Allowed sem modificacao
 	if hostname == a.Options.Oidc.Hostname && len(path) > len(a.Options.Oidc.Path) && a.Options.Oidc.Path == path[:len(a.Options.Oidc.Path)] {
 		log.Debugf("Auth request")
 		return &auth.CheckResponse{
@@ -199,11 +209,14 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		}, nil
 	}
 
-	// Se receber um Bearer token Valido e ele é autorizado, aceita a requisicao nao sendo autorizado retorna unauth
+	// Se receber um Bearer token Valido, verifica a autorizadao
 	if authzErr == nil && len(authz) > 0 {
 		ok, err := a.jwtinstance.ValidateJwt(authz)
 		log.Debugf("Received Authorization for: %s, result %v", authz, ok)
+		// Response ok par token valido e false para token invalido
 		if ok {
+			// FIXME necessario um bloco de retorno unico com case
+			// Caso Allowed sem modificacao
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
 					Code: int32(rpc.OK),
@@ -214,6 +227,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			}, nil
 		} else {
 			log.Debugf("Received Error %s", err)
+			// FIXME necessario um bloco de retorno unico com case
+			// Caso UNAUTHENTICATED com Body custom
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
 					Code: int32(rpc.UNAUTHENTICATED),
@@ -239,6 +254,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		log.Debugf("Fingerprint: %s recebido", certParts.hash)
 		var cn string
 		var err error
+
+		// Se o certificado nao tem CN, nao tem subject
 		if cn, err = certParts.GetCn(); err != nil {
 			cn = ""
 		}
@@ -250,6 +267,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			tokenSha := fmt.Sprintf("Bearer %s", token)
 
 			log.Debugf("Build token: %s", tokenSha)
+			// FIXME necessario um bloco de retorno unico com case
+			// Caso UNAUTHENTICATED com Header Custom
 			return &auth.CheckResponse{
 				Status: &rpc.Status{
 					Code: int32(rpc.OK),
@@ -274,6 +293,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao
 	log.Debugf("Retornando unauth\n")
+	// FIXME necessario um bloco de retorno unico com case
+	// Caso UNAUTHENTICATED com Body Custom
 	return &auth.CheckResponse{
 		Status: &rpc.Status{
 			Code: int32(rpc.UNAUTHENTICATED),
@@ -287,4 +308,5 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			},
 		},
 	}, nil
+
 }

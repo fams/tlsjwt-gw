@@ -194,6 +194,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 	log.Debugf("OIDC, hostname: %s, path: %s",hostname,path)
 
+	//Healthz
+
 	// Verificando se o request e destinado ao endpoint de autenticacao interno
 	//FIXME necessario um bloco de retorno unico com case
 	// Caso Allowed sem modificacao
@@ -303,7 +305,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 				Status: &envoytype.HttpStatus{
 					Code: envoytype.StatusCode_Unauthorized,
 				},
-				Body: "<em>Unauth access to protected resource<em>",
+				Body: "<em>No auth access to protected resource<em>",
 			},
 		},
 	}, nil

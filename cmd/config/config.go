@@ -10,7 +10,7 @@ import (
 )
 
 type credentialConf struct {
-	Loader         credential.CredentialLoader
+	Loader         credential.Loader
 	LoaderInterval time.Duration
 	CacheInterval  time.Duration
 	CacheClean     time.Duration
@@ -34,9 +34,12 @@ type Options struct {
 	Port          int
 	Hostname      string
 	Oidc          OidcConf
+	IgnorePaths   []string
 	Credentialdb  *credentialConf
 	JwtConf       *jwtConf
 	EnableOptions bool
+	AuthHeader    string
+	ClaimString	  string
 }
 
 type OidcConf struct {
@@ -56,6 +59,7 @@ type IssuerConf struct {
 	Url    string
 }
 
+
 // Default conf
 func DefaultConf() (v1 *viper.Viper, err error) {
 	// Definindo Padroes e lendo arquivo de configuracao
@@ -63,9 +67,13 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 		"port":     8080,
 		"hostname": "localhost",
 		"loglevel": "debug",
+
 		"oidc": map[string]interface{}{
 			"hostname": "localhost",
 			"path":     "/auth",
+		},
+		"IgnorePaths": map[string]interface{}{
+			"none": "none",
 		},
 
 		"credentialCache": map[string]interface{}{
@@ -82,6 +90,8 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 			"localIssuer":    "tlsgw.local",
 			"kid":            "",
 			"tokenLifetime":  60,
+			"authHeader": "authorization",
+			"claimString": "aud",
 			"issuers": map[string]interface{}{
 				"name1": map[string]interface{}{
 					"iss": "tlsgw.local",
@@ -159,23 +169,40 @@ func BuildOptions() (Options, error) {
 	opt.JwtConf.LocalIssuer = v1.GetString("jwt.localIssuer")
 	opt.JwtConf.Kid			= v1.GetString("jwt.kid")
 	opt.JwtConf.TokenLifetime = time.Duration(v1.GetInt64("jwt.tokenLifetime"))
-	var i []IssuerConf
-	opt.JwtConf.Issuers = i
-	issuers := v1.GetStringMap("jwt.issuers")
+
+
+
+	ignorePaths := v1.GetStringMap("ignorePaths")
+	for e := range ignorePaths{
+		path := v1.GetString(fmt.Sprintf("ignorePaths.%s", e))
+		opt.IgnorePaths = append(opt.IgnorePaths,path)
+		log.Debugf("ignore path: %s", path)
+	}
 	//var issAllow  []IssuerConf
-	for k := range issuers {
+
+	issuers := v1.GetStringMap("jwt.issuers")
+
+	var ic []IssuerConf
+ 	for k := range issuers {
 		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
 		url := v1.GetString(fmt.Sprintf("jwt.issuers.%s.url", k))
-		opt.JwtConf.Issuers = append(opt.JwtConf.Issuers, IssuerConf{iss, url})
+		opt.JwtConf.Issuers = append(ic, IssuerConf{iss, url})
 	}
+	opt.JwtConf.Issuers = ic
 
 	opt.Oidc = OidcConf{v1.GetString("oidc.hostname"), v1.GetString("oidc.path")}
+
+	opt.AuthHeader = v1.GetString("jwt.authHeader")
+	log.Debugf("authHeader: %s", opt.AuthHeader)
+	opt.ClaimString = v1.GetString("jwt.claimString")
+	log.Debugf("claimString: %s", opt.ClaimString)
+	//opt.IgnoreList
 
 	//fatal(err)
 
 	// Issuer usado pelo GW
-	localIssuer := v1.GetString("jwt.localissuer")
-	log.Debugf("Local Issuer: %s", localIssuer)
+	//localIssuer := v1.GetString("jwt.localissuer")
+	//log.Debugf("local Issuer: %s", localIssuer)
 
 	return opt, err
 }

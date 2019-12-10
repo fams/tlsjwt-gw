@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+
 // Structured version of Claims Section, as referenced at
 // https://tools.ietf.org/html/rfc7519#section-4.1
 // See examples for how to use this with your own claim types
@@ -46,13 +47,13 @@ func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration, kid 
 }
 
 //
-// SignToken recebe uma lista de audiences a ser adicionado ao JWT e o tempo de vida do token
+// SignToken recebe uma lista de claims a ser adicionado ao JWT e o tempo de vida do token
 // Retorna um string JWS assinado com a chave privada do tratador de JWT instanciado
 func (j *JwtHandler) SignToken(customClaims map[string][]string, clientId string) (string, error) {
 	//tokeninzador RS256
 
 	var claims jwt.MapClaims
-	// audiences tem tratamento diferente se for singular ou plural, resultando em uma string ou uma lista de strings
+	// no jwt, o tratamento é diferente para singular ou plural, resultando em uma string ou uma lista de strings
 	claims = jwt.MapClaims{
 		"exp":       time.Now().Add(time.Minute * j.tokenLifetime).Unix(),
 		"iss":       j.localIssuer,
@@ -61,7 +62,7 @@ func (j *JwtHandler) SignToken(customClaims map[string][]string, clientId string
 	}
 	for claimName, claimList := range customClaims {
 		if len(customClaims[claimName]) > 1 {
-			log.Debugf("Gerando claims para %d $s", len(claimList),claimName)
+			log.Debugf("Gerando claims para %d %s", len(claimList),claimName)
 			claims[claimName]=claimList
 		} else {
 			claims[claimName]=claimList[0]

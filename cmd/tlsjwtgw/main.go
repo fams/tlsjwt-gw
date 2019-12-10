@@ -60,14 +60,18 @@ func main() {
 
 	// Issuer usado pelo GW
 	localIssuer := options.JwtConf.LocalIssuer
-	log.Debugf("Local Issuer: %s", localIssuer)
+	log.Debugf("local Issuer: %s", localIssuer)
 
+
+
+	log.Debugf("authHeader: %s", options.AuthHeader)
+	log.Debugf("claimString: %s", options.ClaimString)
 	// Iniciando o gerenciador JWT
 	myJwtHandler := jwthandler.New(signBytes, localIssuer, options.JwtConf.TokenLifetime,options.JwtConf.Kid )
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {
-			log.Fatalf("Erro carregando JWTconf: %s iss:%s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
+			log.Fatalf("Erro carregando JWTconf: %s iss: %s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		}
 	}
 

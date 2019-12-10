@@ -1,13 +1,13 @@
 package credential
 
 // par de certificate fingerprint + path
-type Permission struct {
+type Principal struct {
 	Fingerprint, Scope string
 }
 
-//Audiences a serem adicionadas
-type Claims struct {
-	Audience []string
+//Permissions a serem adicionadas
+type Permissions struct {
+	Permission []string
 }
 
-type PermissionClaims map[Permission]Claims
+type Acl map[Principal]Permissions

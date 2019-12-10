@@ -39,7 +39,7 @@ func (tc *CredentialMap) Sched(interval time.Duration, loader CredentialLoader) 
 		// Verifica se as credenciais recebidas nao sao as mesmas em atividade
 		if ok {
 			if !reflect.DeepEqual(tc.mymap[tc.lastepoch], pc) {
-				log.Info("Recbidos novos claims, reconciliando")
+				log.Info("recebidos novos claims do provedor de claims, reconciliando")
 				// Define novo conjunto de credenciais
 				newepoch := tc.lastepoch + 1
 				tc.mymap[newepoch] = pc

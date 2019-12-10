@@ -45,12 +45,14 @@ func (tc *CredentialMap) Sched(interval time.Duration, loader CredentialLoader) 
 				tc.mymap[newepoch] = pc
 
 				// Area critica, muda o apontamento das credenciais para o novo conjunto e apaga o 6 mais antigo
+				log.Debug("iniciando area critica para atualizacao do mapa")
 				tc.m.Lock()
 				tc.lastepoch = newepoch
-				tc.m.Unlock()
 				if newepoch > 5 {
 					delete(tc.mymap, newepoch-5)
 				}
+				log.Debug("saindo da area critica")
+				tc.m.Unlock()
 			} else {
 				log.Debug("nao e necessario reconciliar")
 			}

@@ -95,12 +95,12 @@ func (chp *ClientcertHeaderParts) GetCn() (string, error) {
 
 	parts := strings.Split(s, ",")
 	if len(parts) < 1 {
-		return "", fmt.Errorf("Invalid CN")
+		return "", fmt.Errorf("invalid CN")
 	}
 	if strings.ToLower(parts[0][0:2]) == "cn" {
 		return parts[0][3:], nil
 	} else {
-		return "", fmt.Errorf("String:%s", s)
+		return "", fmt.Errorf("string:%s", s)
 	}
 }
 
@@ -117,7 +117,7 @@ func FromClientCertHeader(ClientcertHeader string) (*ClientcertHeaderParts, erro
 
 	HeadersParts := strings.Split(ClientcertHeader, ";")
 	if len(HeadersParts) != 2 {
-		return CertParts, fmt.Errorf("Certificate Information Header invalid")
+		return CertParts, fmt.Errorf("certificate Information Header invalid")
 	}
 	log.Debugf("Certificate Header: %s, subjetct: %s", HeadersParts[0], HeadersParts[1])
 
@@ -125,7 +125,7 @@ func FromClientCertHeader(ClientcertHeader string) (*ClientcertHeaderParts, erro
 		if strings.ToLower(HeadersParts[i][0:4]) == "hash" {
 			parts := strings.Split(HeadersParts[i], "=")
 			if len(parts) < 2 {
-				return CertParts, errors.New("Fingerprint header format must be Hash={fingerprint}")
+				return CertParts, errors.New("fingerprint header format must be Hash={fingerprint}")
 			} else {
 				CertParts.hash = parts[1]
 			}
@@ -138,8 +138,8 @@ func FromClientCertHeader(ClientcertHeader string) (*ClientcertHeaderParts, erro
 	}
 	if len(CertParts.hash) > 1 && len(CertParts.subject) > 1 {
 		return CertParts, nil
-	}else{
-		return CertParts, fmt.Errorf("Certificate Information Header invalid")
+	} else {
+		return CertParts, fmt.Errorf("certificate Information Header invalid")
 	}
 }
 
@@ -192,7 +192,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
 
-	log.Debugf("OIDC, hostname: %s, path: %s",hostname,path)
+	log.Debugf("OIDC, hostname: %s, path: %s", hostname, path)
 
 	//Healthz
 
@@ -288,8 +288,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 				},
 			}, nil
 		}
-	}else{
-		log.Debugf("Error %v",certPartsErr)
+	} else {
+		log.Debugf("Error %v", certPartsErr)
 	}
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao

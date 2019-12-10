@@ -51,6 +51,8 @@ func (tc *CredentialMap) Sched(interval time.Duration, loader CredentialLoader) 
 				if newepoch > 5 {
 					delete(tc.mymap, newepoch-5)
 				}
+			} else {
+				log.Debug("nao e necessario reconciliar")
 			}
 		} else {
 			tc.wg.Done()

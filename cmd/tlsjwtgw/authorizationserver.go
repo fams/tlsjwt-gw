@@ -289,7 +289,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			}, nil
 		}
 	}else{
-		log.Debugf("Error %v",certPartsErr)
+		log.Debugf("Error certificate parts incomplete %v",certPartsErr)
 	}
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao

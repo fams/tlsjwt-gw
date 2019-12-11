@@ -21,24 +21,20 @@ import (
 // empty struct because this isn't a fancy example
 type AuthorizationServer struct {
 	credentialCache *cache.Cache
-	credentialMap   *credential.CredentialMap
+	credentialMap   *credential.Store
 	jwtinstance     *jwthandler.JwtHandler
-	//	Oidc 			*c.OidcConf
 	Options *c.Options
 }
 
-//type oidcConf struct{
-//	hostname string
-//	path string
-//}
+
 //CacheToken
 
-func (a *AuthorizationServer) BuildToken(permission credential.Permission, clientId string) (string, bool) {
+func (a *AuthorizationServer) BuildToken(principal credential.Principal, clientId string) (string, bool) {
 
 	var hash strings.Builder
-	hash.WriteString(permission.Fingerprint)
+	hash.WriteString(principal.Fingerprint)
 	hash.WriteString(":")
-	hash.WriteString(permission.Scope)
+	hash.WriteString(principal.Scope)
 
 	cachedToken, found := a.credentialCache.Get(hash.String())
 
@@ -48,15 +44,18 @@ func (a *AuthorizationServer) BuildToken(permission credential.Permission, clien
 	} else {
 		log.Debug("Nao encontrei credentialCache para", hash.String())
 
-		log.Debugf("Validando fingerprint: %s, scope: %s", permission.Fingerprint, permission.Scope)
+		log.Debugf("Validando fingerprint: %s, scope: %s", principal.Fingerprint, principal.Scope)
 
-		claims, okClaim := a.credentialMap.Validate(permission)
+		claims, okClaim := a.credentialMap.Validate(principal)
 		// Se retornou ok, carrega as claims no jwt
-		if len(permission.Fingerprint) == 64 && okClaim {
-			log.Debugf("Fingerprint %s valida para scope: %s ", permission.Fingerprint, permission.Scope)
+		if len(principal.Fingerprint) == 64 && okClaim {
+			log.Debugf("Fingerprint %s valida para scope: %s ", principal.Fingerprint, principal.Scope)
 
 			// Build token
-			tokenString, err := a.jwtinstance.SignToken(claims.Audience, clientId)
+			var myClaims map[string][]string
+			myClaims = make(map[string][]string)
+			myClaims["aud"]=claims.Permission
+			tokenString, err := a.jwtinstance.SignToken(myClaims, clientId)
 
 			if err != nil {
 				log.Errorf("error sign Token: %v", err)
@@ -91,16 +90,16 @@ type ClientcertHeaderParts struct {
 }
 
 func (chp *ClientcertHeaderParts) GetCn() (string, error) {
-	s, _ := strconv.Unquote(string(chp.subject))
+	var s, _ = strconv.Unquote(chp.subject)
 
 	parts := strings.Split(s, ",")
 	if len(parts) < 1 {
-		return "", fmt.Errorf("invalid CN")
+		return "", fmt.Errorf("nao recebi informacao suficiente do certificado")
 	}
 	if strings.ToLower(parts[0][0:2]) == "cn" {
 		return parts[0][3:], nil
 	} else {
-		return "", fmt.Errorf("string:%s", s)
+		return "", fmt.Errorf("string do certificado invalida:%s", s)
 	}
 }
 
@@ -131,8 +130,8 @@ func FromClientCertHeader(ClientcertHeader string) (*ClientcertHeaderParts, erro
 			}
 		}
 		if strings.ToLower(HeadersParts[i])[0:7] == "subject" {
-			subject_string := HeadersParts[i][8:]
-			CertParts.subject = subject_string
+			subjectString := HeadersParts[i][8:]
+			CertParts.subject = subjectString
 		}
 
 	}
@@ -182,8 +181,11 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	if len(scopeString) > 20 {
 		scopeString = ""
 	}
+
+	authHeader := a.Options.AuthHeader
+
 	//Header JWT de autorizacao
-	authorizationHeader, _ := req.Attributes.Request.Http.Headers["authorization"]
+	authorizationHeader, _ := req.Attributes.Request.Http.Headers[authHeader]
 
 	//Recupera o JWT
 	authz, authzErr := FromAuthHeader(authorizationHeader)
@@ -261,7 +263,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			cn = ""
 		}
 
-		token, okToken := a.BuildToken(credential.Permission{Fingerprint: certParts.hash, Scope: scopeString}, cn)
+		token, okToken := a.BuildToken(credential.Principal{Fingerprint: certParts.hash, Scope: scopeString}, cn)
 
 		if okToken {
 
@@ -279,7 +281,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 						Headers: []*core.HeaderValueOption{
 							{
 								Header: &core.HeaderValue{
-									Key:   "Authorization",
+									Key:   authHeader,
 									Value: tokenSha,
 								},
 							},
@@ -288,8 +290,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 				},
 			}, nil
 		}
-	} else {
-		log.Debugf("Error %v", certPartsErr)
+	}else{
+		log.Debugf("Error certificate parts incomplete %v",certPartsErr)
 	}
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao

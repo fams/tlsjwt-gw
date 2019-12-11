@@ -18,8 +18,8 @@ type S3loader struct {
 }
 
 type Scope struct {
-	Name      string
-	Audiences []string
+	Name        string
+	Permissions []string
 }
 type Credential struct {
 	Fingerprint, Name string
@@ -27,7 +27,7 @@ type Credential struct {
 }
 
 // Carrega as permissoes de um bucket s3
-func (s *S3loader) LoadCredentials() (PermissionClaims, bool) {
+func (s *S3loader) LoadCredentials() (Acl, bool) {
 	//Nova Sessão com a AWS
 	log.Debugf("Iniciando sessao com S3")
 	sess, _ := session.NewSession(&aws.Config{
@@ -59,7 +59,7 @@ func (s *S3loader) LoadCredentials() (PermissionClaims, bool) {
 
 	dec := json.NewDecoder(result.Body)
 
-	pc := PermissionClaims{}
+	pc := Acl{}
 	for {
 		var perm Credential
 		//Carrega as permissoes em perm
@@ -70,8 +70,8 @@ func (s *S3loader) LoadCredentials() (PermissionClaims, bool) {
 			return nil, false
 		}
 		for i := 0; i < len(perm.Scopes); i++ {
-			log.Debugf("Carregado %s, Scope	: %s, Claim: %s", perm.Fingerprint, perm.Scopes[i].Name, strings.Join(perm.Scopes[i].Audiences[:], "|"))
-			pc[Permission{perm.Fingerprint, perm.Scopes[i].Name}] = Claims{perm.Scopes[i].Audiences}
+			log.Debugf("recebido Fingerprint %s, Scope	: %s, Claim: %s", perm.Fingerprint, perm.Scopes[i].Name, strings.Join(perm.Scopes[i].Permissions[:], "|"))
+			pc[Principal{perm.Fingerprint, perm.Scopes[i].Name}] = Permissions{perm.Scopes[i].Permissions}
 		}
 	}
 	return pc, true

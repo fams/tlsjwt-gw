@@ -52,7 +52,7 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 		parsedToken, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(issuer, false)
 			if !checkIss {
-				return nil, errors.New("Invalid issuer.")
+				return nil, errors.New("invalid issuer")
 			}
 			// Caso o hint de certificado kid seja nulo, assume que deve usar o primeiro da lista
 			if token.Header["kid"] == nil {
@@ -85,20 +85,20 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 
 	// Se nao for possivel fazer o parse do token retorna falso co o erro de parse
 	if err != nil {
-		return false, fmt.Errorf("Error parsing token: %v", err)
+		return false, fmt.Errorf("error parsing token: %v", err)
 	}
 
 	// FIXME Algoritmo RS256 hardcoded, futuramente podemos aceitar o ES256, mas menos que isso e negado
 	if "RS256" != parsedToken.Header["alg"] {
-		message := fmt.Sprintf("Expected %s signing method but token specified %s",
-			jwt.SigningMethodRS256,
+		message := fmt.Sprintf("expected %s signing method but token specified %s",
+			"RS256",
 			parsedToken.Header["alg"])
-		return false, fmt.Errorf("Error validating token algorithm: %s", message)
+		return false, fmt.Errorf("error validating token algorithm: %s", message)
 	}
 
 	// Caso o token seja de um issuer confiavel retorna ok, do contrario false com erro
 	if !parsedToken.Valid {
-		return false, errors.New("Token is invalid")
+		return false, errors.New("token is invalid")
 	}
 	return true, nil
 }

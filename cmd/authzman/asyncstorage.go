@@ -1,5 +1,5 @@
 // Gerencia a base de credenciais que valida o fingerprint do mTLS e define os claims validos
-package credential
+package authzman
 
 import (
 	log "github.com/sirupsen/logrus"
@@ -10,15 +10,16 @@ import (
 )
 
 type Store struct {
-	mymap     map[int]Acl
-	lastepoch int
-	m         *sync.RWMutex
-	wg        *sync.WaitGroup
+	permMapStorage map[int]PermissionMap
+	lastepoch      int
+	m              *sync.RWMutex
+	wg             *sync.WaitGroup
 }
+
 
 // Loader e a interface para multiplos provedores de base de permissionamento
 type Loader interface {
-	LoadCredentials() (Acl, bool)
+	LoadPermissions() (PermissionMap, bool)
 }
 
 //Sched recebe um intervalo de acao e uma funcao de recarga das credenciais,
@@ -35,21 +36,21 @@ func (tc *Store) Sched(interval time.Duration, loader Loader) {
 	for {
 		sleep()
 		// carrega as credenciais em pc
-		pc, ok := loader.LoadCredentials()
+		pc, ok := loader.LoadPermissions()
 		// Verifica se as credenciais recebidas nao sao as mesmas em atividade
 		if ok {
-			if !reflect.DeepEqual(tc.mymap[tc.lastepoch], pc) {
+			if !reflect.DeepEqual(tc.permMapStorage[tc.lastepoch], pc) {
 				log.Info("recebidos novos claims do provedor de claims, reconciliando")
 				// Define novo conjunto de credenciais
 				newepoch := tc.lastepoch + 1
-				tc.mymap[newepoch] = pc
+				tc.permMapStorage[newepoch] = pc
 
 				// Area critica, muda o apontamento das credenciais para o novo conjunto e apaga o 6 mais antigo
 				log.Debug("iniciando area critica para atualizacao do mapa")
 				tc.m.Lock()
 				tc.lastepoch = newepoch
 				if newepoch > 5 {
-					delete(tc.mymap, newepoch-5)
+					delete(tc.permMapStorage, newepoch-5)
 				}
 				log.Debug("saindo da area critica")
 				tc.m.Unlock()
@@ -70,29 +71,29 @@ func (tc *Store) Sched(interval time.Duration, loader Loader) {
 // Deprecated
 func (tc *Store) Init(loader Loader) {
 	//
-	trustee, ok := loader.LoadCredentials()
-	tc.mymap = make(map[int]Acl)
+	permMap, ok := loader.LoadPermissions()
+	tc.permMapStorage = make(map[int]PermissionMap)
 	tc.m = &sync.RWMutex{}
 	tc.wg = &sync.WaitGroup{}
 	if ok {
 		tc.lastepoch = 0
-		tc.mymap[0] = trustee
+		tc.permMapStorage[0] = permMap
 	} else {
 		log.Fatal("Erro carregando permissoes iniciais")
 	}
 }
 
 // Construtor da base de credenciais, gera o mapa na memoria, carrega base inicial e retorna o mapa em si
-func New(loader Loader) *Store {
+func NewAsyncStorage(loader Loader) *Store {
 	//
 	tc := new(Store)
-	trustee, ok := loader.LoadCredentials()
-	tc.mymap = make(map[int]Acl)
+	currentAcl, ok := loader.LoadPermissions()
+	tc.permMapStorage = make(map[int]PermissionMap)
 	tc.m = &sync.RWMutex{}
 	tc.wg = &sync.WaitGroup{}
 	if ok {
 		tc.lastepoch = 0
-		tc.mymap[0] = trustee
+		tc.permMapStorage[0] = currentAcl
 	} else {
 		log.Fatal("Erro carregando permissoes iniciais")
 		return nil
@@ -100,11 +101,11 @@ func New(loader Loader) *Store {
 	return tc
 }
 
-// Validate recebe uma tupla Principal(fingerprint, scope), verifica se essa permissao existe na base,
+// Validate recebe uma tupla PermissionClaim(fingerprint, scope), verifica se existe permissoes para elas na base,
 // retorna as claims (permissions) para esse PermissionClaim
-func (tc *Store) Validate(permissionClaim Principal) (Permissions, bool) {
+func (tc *Store) Validate(pc PermissionClaim) (PermissionsContainer, bool) {
 	//Area Critica
-	log.Debugf("Validando fingerprint %s, path: %s,", permissionClaim.Fingerprint, permissionClaim.Scope)
+	log.Debugf("Validando fingerprint %s, path: %s,", pc.Fingerprint, pc.Scope)
 	//Area Critica detecta qual epoch está valido
 	tc.wg.Add(1)
 	tc.m.RLock()
@@ -113,10 +114,13 @@ func (tc *Store) Validate(permissionClaim Principal) (Permissions, bool) {
 	tc.wg.Done()
 	// Fixme, nao sei se preciso implementar area critica para leitura do mapa, uma vez
 	//  que ele é sempre gravado para frente
-	claims, okClaims := tc.mymap[epoch][permissionClaim]
+	claims, okClaims := tc.permMapStorage[epoch][pc]
 	if okClaims {
 		return claims, true
 	} else {
 		return claims, false
 	}
+}
+func (tc *Store) Async () bool{
+	return true
 }

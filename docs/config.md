@@ -13,7 +13,7 @@ credentialCache:
     cleanup:    60
 credentials:
     type:   csv
-    path:   /auth/credential
+    path:   authzman
     reload: 60
 jwt:
     rsaPrivateFile: /auth/extauth.rsa,

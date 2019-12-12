@@ -4,7 +4,7 @@ package main
 
 import (
 	c "extauth/cmd/config"
-	"extauth/cmd/credential"
+	"extauth/cmd/authzman"
 	"extauth/cmd/jwthandler"
 	"fmt"
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
@@ -13,6 +13,10 @@ import (
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 // kill program
@@ -45,13 +49,18 @@ func main() {
 		log.SetLevel(log.InfoLevel)
 
 	}
-	// Iniciando o reconciliador de credenciais com o loader csv
 
-	credentialMap := credential.New(options.Credentialdb.Loader)
-	go credentialMap.Sched(options.Credentialdb.LoaderInterval, options.Credentialdb.Loader)
+	// Iniciando o reconciliador de credenciais com o loader
+	//var PermissionManager authzman.AuthzDB
+	PermissionManager := authzman.NewPermDb(options.PermissionDB.Config)
 
+	if PermissionManager.Async() {
+		tick := time.NewTicker(time.Second * 5)
+		go PermissionManager.
+	}
 	//
 	// Configurando o JWT Handler
+	//
 
 	// Chave de assinatura dos tokens emitidos pelo GW
 	privKeyPath := options.JwtConf.RsaPrivateFile
@@ -61,11 +70,9 @@ func main() {
 	// Issuer usado pelo GW
 	localIssuer := options.JwtConf.LocalIssuer
 	log.Debugf("local Issuer: %s", localIssuer)
-
-
-
 	log.Debugf("authHeader: %s", options.AuthHeader)
 	log.Debugf("claimString: %s", options.ClaimString)
+
 	// Iniciando o gerenciador JWT
 	myJwtHandler := jwthandler.New(signBytes, localIssuer, options.JwtConf.TokenLifetime,options.JwtConf.Kid )
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
@@ -77,12 +84,11 @@ func main() {
 
 	//
 	// Inicializando Servidor de Autorizacao
-	// Injetando credentialCache de tokens, base de credenciais e gerenciador de JWT
+	// Injetando Cache de tokens, base de credenciais e gerenciador de JWT
 	authServer := &AuthorizationServer{
-		credentialCache: cache.New(options.Credentialdb.CacheInterval, options.Credentialdb.CacheClean),
-		credentialMap:   credentialMap,
-		jwtinstance:     myJwtHandler,
-		//Oidc:            &options.Oidc,
+		credentialCache:   cache.New(options.PermissionDB.CacheInterval, options.PermissionDB.CacheClean),
+		PermissionManager: PermissionManager,
+		jwtinstance:       myJwtHandler,
 		Options: &options,
 	}
 
@@ -102,4 +108,12 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+
+	// Graceful end
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+	grpcServer.Stop()
+
+
 }

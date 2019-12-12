@@ -1,7 +1,8 @@
 package config
 
 import (
-	"extauth/cmd/credential"
+	"strconv"
+
 	//"extauth/cmd/jwthandler"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -9,11 +10,15 @@ import (
 	"time"
 )
 
-type credentialConf struct {
-	Loader         credential.Loader
-	LoaderInterval time.Duration
-	CacheInterval  time.Duration
-	CacheClean     time.Duration
+type DBConf struct {
+	Options map[string]string
+	DBType  string
+}
+
+type PermissionDBConf struct {
+	Config        DBConf
+	CacheInterval time.Duration
+	CacheClean    time.Duration
 }
 
 //type issuerConf interface {
@@ -35,11 +40,11 @@ type Options struct {
 	Hostname      string
 	Oidc          OidcConf
 	IgnorePaths   []string
-	Credentialdb  *credentialConf
+	PermissionDB  *PermissionDBConf
 	JwtConf       *jwtConf
 	EnableOptions bool
 	AuthHeader    string
-	ClaimString	  string
+	ClaimString   string
 }
 
 type OidcConf struct {
@@ -58,7 +63,6 @@ type IssuerConf struct {
 	Issuer string
 	Url    string
 }
-
 
 // Default conf
 func DefaultConf() (v1 *viper.Viper, err error) {
@@ -82,7 +86,7 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 		},
 		"credentials": map[string]string{
 			"type":   "csv",
-			"path":   "/auth/credential",
+			"path":   "/auth/authzman",
 			"reload": "60",
 		},
 		"jwt": map[string]interface{}{
@@ -90,8 +94,8 @@ func DefaultConf() (v1 *viper.Viper, err error) {
 			"localIssuer":    "tlsgw.local",
 			"kid":            "",
 			"tokenLifetime":  60,
-			"authHeader": "authorization",
-			"claimString": "aud",
+			"authHeader":     "authorization",
+			"claimString":    "aud",
 			"issuers": map[string]interface{}{
 				"name1": map[string]interface{}{
 					"iss": "tlsgw.local",
@@ -127,17 +131,10 @@ func BuildOptions() (Options, error) {
 
 	opt.Loglevel = v1.GetString("loglevel")
 	//
-	// Credentials
-	//var cc credentialConf
-	credentialdb := &credentialConf{}
-	opt.Credentialdb = credentialdb
+	// Config PermissionDB
+	//var cc PermissionDBConf
 
-	interval := v1.GetInt("credentials.reload")
-	if interval < 10 {
-		log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
-	}
-
-	opt.Credentialdb.LoaderInterval = time.Duration(interval)
+	opt.PermissionDB = new(PermissionDBConf)
 
 	switch v1.GetString("credentials.type") {
 	case "csv":
@@ -146,36 +143,60 @@ func BuildOptions() (Options, error) {
 		if path := v1.GetString("credentials.path"); len(path) < 2 {
 			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
 		} else {
-			opt.Credentialdb.Loader = &credential.CsvLoader{CsvPath: path}
+			param := make(map[string]string)
+			param["CsvPath"] = path
+			interval := v1.GetInt("credentials.reload")
+			if interval < 10 {
+				log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
+			}
+			param["interval"] = strconv.Itoa(interval)
+			opt.PermissionDB.Config = DBConf{param, "csv"}
 		}
 	case "s3":
-		bucket := v1.GetString("credentials.bucket")
-		key := v1.GetString("credentials.key")
-		region := v1.GetString("credentials.region")
-		opt.Credentialdb.Loader = &credential.S3loader{BucketName: bucket, KeyName: key, Region: region}
+		param := make(map[string]string)
+		param["bucket"] = v1.GetString("credentials.bucket")
+		param["key"] = v1.GetString("credentials.key")
+		param["region"] = v1.GetString("credentials.region")
+		interval := v1.GetInt("credentials.reload")
+		if interval < 10 {
+			log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
+		}
+		param["interval"] = strconv.Itoa(interval)
+		opt.PermissionDB.Config = DBConf{param, "s3"}
+	case "mongo":
+		param := make(map[string]string)
+		param["hostname"] = v1.GetString("credentials.hostname")
+		param["table"] = v1.GetString("credentials.table")
+		opt.PermissionDB.Config = DBConf{param, "mongo"}
+
+
+		log.Debug("using mongo with %s, %s", v1.GetString("credentials.hostname"), v1.GetString("credentials.table"))
 	default:
 		log.Fatal("Nenhum provedor de credenciais configurado")
 	}
 
-	opt.Credentialdb.CacheClean = time.Duration(v1.GetInt64("credentialCache.cleanup")) * time.Minute
-	opt.Credentialdb.CacheInterval = time.Duration(v1.GetInt64("credentialCache.expiration")) * time.Minute
-	if opt.Credentialdb.CacheInterval > opt.Credentialdb.CacheClean || opt.Credentialdb.CacheInterval < 30 {
+	//Configuracoes de AsyncDb
+
+	opt.PermissionDB.CacheClean = time.Duration(v1.GetInt64("credentialCache.cleanup")) * time.Minute
+	opt.PermissionDB.CacheInterval = time.Duration(v1.GetInt64("credentialCache.expiration")) * time.Minute
+
+	if opt.PermissionDB.CacheInterval > opt.PermissionDB.CacheClean || opt.PermissionDB.CacheInterval < 30 {
 		log.Fatal("Tempo de vida do cache minimo 30s, tempo de limpeza deve ser superior ao tempo de vida")
 	}
-	var jwtConf jwtConf
-	opt.JwtConf = &jwtConf
+
+	// JWT Config
+	//var jwtConf jwtConf
+	opt.JwtConf = new(jwtConf)
 	// Chave de assinatura dos tokens emitidos pelo GW
 	opt.JwtConf.RsaPrivateFile = v1.GetString("jwt.rsaprivatefile")
 	opt.JwtConf.LocalIssuer = v1.GetString("jwt.localIssuer")
-	opt.JwtConf.Kid			= v1.GetString("jwt.kid")
+	opt.JwtConf.Kid = v1.GetString("jwt.kid")
 	opt.JwtConf.TokenLifetime = time.Duration(v1.GetInt64("jwt.tokenLifetime"))
 
-
-
 	ignorePaths := v1.GetStringMap("ignorePaths")
-	for e := range ignorePaths{
+	for e := range ignorePaths {
 		path := v1.GetString(fmt.Sprintf("ignorePaths.%s", e))
-		opt.IgnorePaths = append(opt.IgnorePaths,path)
+		opt.IgnorePaths = append(opt.IgnorePaths, path)
 		log.Debugf("ignore path: %s", path)
 	}
 	//var issAllow  []IssuerConf
@@ -183,7 +204,7 @@ func BuildOptions() (Options, error) {
 	issuers := v1.GetStringMap("jwt.issuers")
 
 	var ic []IssuerConf
- 	for k := range issuers {
+	for k := range issuers {
 		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
 		url := v1.GetString(fmt.Sprintf("jwt.issuers.%s.url", k))
 		opt.JwtConf.Issuers = append(ic, IssuerConf{iss, url})

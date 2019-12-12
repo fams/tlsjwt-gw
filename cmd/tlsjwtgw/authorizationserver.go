@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	c "extauth/cmd/config"
-	"extauth/cmd/credential"
+	"extauth/cmd/authzman"
 	"extauth/cmd/jwthandler"
 	"fmt"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -20,16 +20,16 @@ import (
 
 // empty struct because this isn't a fancy example
 type AuthorizationServer struct {
-	credentialCache *cache.Cache
-	credentialMap   *credential.Store
-	jwtinstance     *jwthandler.JwtHandler
-	Options *c.Options
+	credentialCache   *cache.Cache
+	PermissionManager authzman.AuthzDB
+	jwtinstance       *jwthandler.JwtHandler
+	Options           *c.Options
 }
 
 
 //CacheToken
 
-func (a *AuthorizationServer) BuildToken(principal credential.Principal, clientId string) (string, bool) {
+func (a *AuthorizationServer) BuildToken(principal authzman.PermissionClaim, clientId string) (string, bool) {
 
 	var hash strings.Builder
 	hash.WriteString(principal.Fingerprint)
@@ -46,15 +46,16 @@ func (a *AuthorizationServer) BuildToken(principal credential.Principal, clientI
 
 		log.Debugf("Validando fingerprint: %s, scope: %s", principal.Fingerprint, principal.Scope)
 
-		claims, okClaim := a.credentialMap.Validate(principal)
+		claims, okClaim := a.PermissionManager.Validate(principal)
 		// Se retornou ok, carrega as claims no jwt
 		if len(principal.Fingerprint) == 64 && okClaim {
 			log.Debugf("Fingerprint %s valida para scope: %s ", principal.Fingerprint, principal.Scope)
 
-			// Build token
+			// Build token FIXME: Migrar para o JWT Handler
 			var myClaims map[string][]string
 			myClaims = make(map[string][]string)
-			myClaims["aud"]=claims.Permission
+			myClaims["aud"]=claims.Permissions
+
 			tokenString, err := a.jwtinstance.SignToken(myClaims, clientId)
 
 			if err != nil {
@@ -263,7 +264,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			cn = ""
 		}
 
-		token, okToken := a.BuildToken(credential.Principal{Fingerprint: certParts.hash, Scope: scopeString}, cn)
+		token, okToken := a.BuildToken(authzman.PermissionClaim{Fingerprint: certParts.hash, Scope: scopeString}, cn)
 
 		if okToken {
 

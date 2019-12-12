@@ -1,4 +1,4 @@
-package credential
+package authzman
 
 import (
 	"encoding/json"
@@ -11,23 +11,26 @@ import (
 	"strings"
 )
 
-type S3loader struct {
+type S3DB struct {
 	BucketName string
 	KeyName    string
 	Region     string
 }
 
-type Scope struct {
+// Container para as permissoes, para cada
+type PermissionStorageEntry struct {
+	Fingerprint, Name string
+	Scopes            []ScopeStorageEntry
+}
+
+type ScopeStorageEntry struct {
 	Name        string
 	Permissions []string
 }
-type Credential struct {
-	Fingerprint, Name string
-	Scopes            []Scope
-}
+
 
 // Carrega as permissoes de um bucket s3
-func (s *S3loader) LoadCredentials() (Acl, bool) {
+func (s *S3DB) LoadPermissions() (PermissionMap, bool) {
 	//Nova Sessão com a AWS
 	log.Debugf("Iniciando sessao com S3")
 	sess, _ := session.NewSession(&aws.Config{
@@ -59,19 +62,20 @@ func (s *S3loader) LoadCredentials() (Acl, bool) {
 
 	dec := json.NewDecoder(result.Body)
 
-	pc := Acl{}
+	pc := PermissionMap{}
 	for {
-		var perm Credential
-		//Carrega as permissoes em perm
-		if err := dec.Decode(&perm); err == io.EOF {
+		var permSE PermissionStorageEntry
+		//Carrega as permissoes em permSE
+		if err := dec.Decode(&permSE); err == io.EOF {
 			break
 		} else if err != nil {
 			log.Errorf("S3 Decode error, %s", err)
 			return nil, false
 		}
-		for i := 0; i < len(perm.Scopes); i++ {
-			log.Debugf("recebido Fingerprint %s, Scope	: %s, Claim: %s", perm.Fingerprint, perm.Scopes[i].Name, strings.Join(perm.Scopes[i].Permissions[:], "|"))
-			pc[Principal{perm.Fingerprint, perm.Scopes[i].Name}] = Permissions{perm.Scopes[i].Permissions}
+		// Para cada escopo cria uma entrada no mapa de permissoes
+		for i := 0; i < len(permSE.Scopes); i++ {
+			log.Debugf("recebido Fingerprint %s, ScopeStorageEntry	: %s, Claim: %s", permSE.Fingerprint, permSE.Scopes[i].Name, strings.Join(permSE.Scopes[i].Permissions[:], "|"))
+			pc[PermissionClaim{permSE.Fingerprint, permSE.Scopes[i].Name}] = PermissionsContainer{permSE.Scopes[i].Permissions}
 		}
 	}
 	return pc, true

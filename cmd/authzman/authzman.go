@@ -1,37 +1,49 @@
 package authzman
 
-import "extauth/cmd/config"
+import (
+	"extauth/cmd/config"
+	"time"
+)
+
+// Container para as permissoes
+type PermissionStorageEntry struct {
+	Fingerprint, Name string
+	Credentials       []Credential
+}
 
 // par de certificate fingerprint + path
 type PermissionClaim struct {
 	Fingerprint, Scope string
 }
 
-//PermissionsContainer a serem adicionadas
-type PermissionsContainer struct {
-	Permissions []string
+//Credential a serem adicionadas
+type Credential struct {
+	Scope       string   `json:"scope" bson:"scope"`
+	Permissions []string `json:"permissions,omitempty" bson:"permissions,omitempty"`
 }
 
-type PermissionMap map[PermissionClaim]PermissionsContainer
+type PermissionMap map[PermissionClaim]Credential
 
 type AuthzDB interface {
-	Validate(pc PermissionClaim) (PermissionsContainer, bool)
-	Async()(bool)
+	Validate(pc PermissionClaim) (Credential, bool)
+	Async() bool
+	Init(tick *time.Ticker)
 }
 
+func NewPermDb(config config.DBConf) AuthzDB {
 
-func NewPermDb(config config.DBConf) (AuthzDB){
-	//var options  map[string]string
 	options := config.Options
 	switch config.DBType {
-		case "s3":
-			permdb := S3DB{options["BucketName"],options["key"], options["region"]}
-			return NewAsyncStorage(&permdb)
+	case "s3":
+		permdb := S3DB{options["BucketName"], options["key"], options["region"]}
+		return NewAsyncStorage(&permdb)
 
 	case "csv":
-			permdb := CsvDB{options["csvpath"]}
-			return NewAsyncStorage(&permdb)
+		permdb := CsvDB{options["CsvPath"]}
+		return NewAsyncStorage(&permdb)
+
+	case "mongo":
+		return NewMongoStorage(config)
 	}
 	return nil
 }
-

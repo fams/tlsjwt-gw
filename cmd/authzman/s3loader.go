@@ -17,16 +17,6 @@ type S3DB struct {
 	Region     string
 }
 
-// Container para as permissoes, para cada
-type PermissionStorageEntry struct {
-	Fingerprint, Name string
-	Scopes            []ScopeStorageEntry
-}
-
-type ScopeStorageEntry struct {
-	Name        string
-	Permissions []string
-}
 
 
 // Carrega as permissoes de um bucket s3
@@ -73,9 +63,9 @@ func (s *S3DB) LoadPermissions() (PermissionMap, bool) {
 			return nil, false
 		}
 		// Para cada escopo cria uma entrada no mapa de permissoes
-		for i := 0; i < len(permSE.Scopes); i++ {
-			log.Debugf("recebido Fingerprint %s, ScopeStorageEntry	: %s, Claim: %s", permSE.Fingerprint, permSE.Scopes[i].Name, strings.Join(permSE.Scopes[i].Permissions[:], "|"))
-			pc[PermissionClaim{permSE.Fingerprint, permSE.Scopes[i].Name}] = PermissionsContainer{permSE.Scopes[i].Permissions}
+		for i := 0; i < len(permSE.Credentials); i++ {
+			log.Debugf("recebido Fingerprint %s, ScopeStorageEntry	: %s, Claim: %s", permSE.Fingerprint, permSE.Credentials[i].Scope, strings.Join(permSE.Credentials[i].Permissions[:], "|"))
+			pc[PermissionClaim{permSE.Fingerprint, permSE.Credentials[i].Scope}] = Credential{permSE.Credentials[i].Scope, permSE.Credentials[i].Permissions}
 		}
 	}
 	return pc, true

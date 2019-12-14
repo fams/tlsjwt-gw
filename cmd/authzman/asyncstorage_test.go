@@ -11,7 +11,7 @@ func TestCredential(t *testing.T) {
 	region := "us-east-1"
 
 	loader := S3DB{bucket, key, region}
-	//Carregando permissões iniciais
+	// Carregando permissões iniciais
 	credentialMap := NewAsyncStorage(&loader)
 	fingerprint := "fingerprint1"
 	claims, okValidate := credentialMap.Validate(PermissionClaim{fingerprint, "f1scope"})

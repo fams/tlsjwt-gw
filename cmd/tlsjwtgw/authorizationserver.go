@@ -44,7 +44,7 @@ func (a *AuthorizationServer) BuildToken(principal authzman.PermissionClaim, cli
 	} else {
 		log.Debug("Nao encontrei credentialCache para", hash.String())
 
-		log.Debugf("Validando fingerprint: %s, scope: %s", principal.Fingerprint, principal.Scope)
+		log.Debugf("buscando fingerprint: %s, scope: %s no storage", principal.Fingerprint, principal.Scope)
 
 		claims, okClaim := a.PermissionManager.Validate(principal)
 		// Se retornou ok, carrega as claims no jwt

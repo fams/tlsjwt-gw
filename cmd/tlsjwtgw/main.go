@@ -3,8 +3,8 @@
 package main
 
 import (
-	c "extauth/cmd/config"
 	"extauth/cmd/authzman"
+	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
 	"fmt"
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
@@ -55,8 +55,18 @@ func main() {
 	PermissionManager := authzman.NewPermDb(options.PermissionDB.Config)
 
 	if PermissionManager.Async() {
-		tick := time.NewTicker(time.Second * 5)
-		go PermissionManager.
+		duration, err := time.ParseDuration(options.PermissionDB.Config.Options["interval"])
+		if err == nil {
+			tick := time.NewTicker(duration)
+			go PermissionManager.Init(tick)
+		}else{
+			log.Debugf("Não foi possivel converter %s para time.duration ",options.PermissionDB.Config.Options["interval"] )
+			fatal(err)
+		}
+	}else{
+		log.Info("iniciando banco syncrono")
+		ticker := time.NewTicker(time.Second)
+		PermissionManager.Init(ticker)
 	}
 	//
 	// Configurando o JWT Handler
@@ -114,6 +124,5 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 	grpcServer.Stop()
-
 
 }

@@ -1,8 +1,6 @@
 package config
 
 import (
-	"strconv"
-
 	//"extauth/cmd/jwthandler"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -145,11 +143,7 @@ func BuildOptions() (Options, error) {
 		} else {
 			param := make(map[string]string)
 			param["CsvPath"] = path
-			interval := v1.GetInt("credentials.reload")
-			if interval < 10 {
-				log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
-			}
-			param["interval"] = strconv.Itoa(interval)
+			param["interval"] = v1.GetString("credentials.reload")
 			opt.PermissionDB.Config = DBConf{param, "csv"}
 		}
 	case "s3":
@@ -157,20 +151,18 @@ func BuildOptions() (Options, error) {
 		param["bucket"] = v1.GetString("credentials.bucket")
 		param["key"] = v1.GetString("credentials.key")
 		param["region"] = v1.GetString("credentials.region")
-		interval := v1.GetInt("credentials.reload")
-		if interval < 10 {
-			log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
-		}
-		param["interval"] = strconv.Itoa(interval)
+		//interval := v1.GetInt("credentials.reload")
+		//if interval < 10 {
+		//	log.Fatal("Intervalo de recarga de credenciais não pode ser < 10")
+		//}
+		param["interval"] = v1.GetString("credentials.reload")
 		opt.PermissionDB.Config = DBConf{param, "s3"}
 	case "mongo":
 		param := make(map[string]string)
-		param["hostname"] = v1.GetString("credentials.hostname")
-		param["table"] = v1.GetString("credentials.table")
+		param["uri"] = v1.GetString("credentials.uri")
+		param["database"] = v1.GetString("credentials.database")
 		opt.PermissionDB.Config = DBConf{param, "mongo"}
-
-
-		log.Debug("using mongo with %s, %s", v1.GetString("credentials.hostname"), v1.GetString("credentials.table"))
+		log.Debug("using mongo with %s, %s", v1.GetString("credentials.uri"), v1.GetString("credentials.database"))
 	default:
 		log.Fatal("Nenhum provedor de credenciais configurado")
 	}

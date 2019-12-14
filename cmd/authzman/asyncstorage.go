@@ -3,7 +3,6 @@ package authzman
 
 import (
 	log "github.com/sirupsen/logrus"
-	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ type Store struct {
 	lastepoch      int
 	m              *sync.RWMutex
 	wg             *sync.WaitGroup
+	loader		   Loader
 }
 
 
@@ -22,19 +22,11 @@ type Loader interface {
 	LoadPermissions() (PermissionMap, bool)
 }
 
-//Sched recebe um intervalo de acao e uma funcao de recarga das credenciais,
+//Init recebe um intervalo de acao e uma funcao de recarga das credenciais,
 // Agenda a funcao baseado no intervalo em segundos
-func (tc *Store) Sched(interval time.Duration, loader Loader) {
-	rand.Seed(time.Now().Unix())
 
-	// funcao de intervalo de disparo
-	sleep := func() {
-		time.Sleep(interval * time.Second)
-	}
-	// obtem um mutex para acesso
-	tc.wg.Add(1)
-	for {
-		sleep()
+func (tc *Store) sync(loader Loader){
+
 		// carrega as credenciais em pc
 		pc, ok := loader.LoadPermissions()
 		// Verifica se as credenciais recebidas nao sao as mesmas em atividade
@@ -63,37 +55,45 @@ func (tc *Store) Sched(interval time.Duration, loader Loader) {
 			// Derrubar o validador não é uma opcao
 			log.Error("Erro reconciliando credenciais")
 		}
-	}
 
 }
+func (tc *Store) Init(tick *time.Ticker) {
+	tc.sync(tc.loader)
+	tc.wg.Add(1)
 
-// Recarga doo mapa de permissoes recebendo a funcao de carga inicial
-// Deprecated
-func (tc *Store) Init(loader Loader) {
-	//
-	permMap, ok := loader.LoadPermissions()
-	tc.permMapStorage = make(map[int]PermissionMap)
-	tc.m = &sync.RWMutex{}
-	tc.wg = &sync.WaitGroup{}
-	if ok {
-		tc.lastepoch = 0
-		tc.permMapStorage[0] = permMap
-	} else {
-		log.Fatal("Erro carregando permissoes iniciais")
+	for range tick.C {
+		tc.sync(tc.loader)
 	}
 }
+
+//// Recarga doo mapa de permissoes recebendo a funcao de carga inicial
+//// Deprecated
+//func (tc *Store) Init(loader Loader) {
+//	//
+//	permMap, ok := loader.LoadPermissions()
+//	tc.permMapStorage = make(map[int]PermissionMap)
+//	tc.m = &sync.RWMutex{}
+//	tc.wg = &sync.WaitGroup{}
+//	if ok {
+//		tc.lastepoch = 0
+//		tc.permMapStorage[0] = permMap
+//	} else {
+//		log.Fatal("Erro carregando permissoes iniciais")
+//	}
+//}
 
 // Construtor da base de credenciais, gera o mapa na memoria, carrega base inicial e retorna o mapa em si
 func NewAsyncStorage(loader Loader) *Store {
 	//
 	tc := new(Store)
-	currentAcl, ok := loader.LoadPermissions()
+	tc.loader = loader
+	permissions, ok := tc.loader.LoadPermissions()
 	tc.permMapStorage = make(map[int]PermissionMap)
 	tc.m = &sync.RWMutex{}
 	tc.wg = &sync.WaitGroup{}
 	if ok {
 		tc.lastepoch = 0
-		tc.permMapStorage[0] = currentAcl
+		tc.permMapStorage[0] = permissions
 	} else {
 		log.Fatal("Erro carregando permissoes iniciais")
 		return nil
@@ -103,7 +103,7 @@ func NewAsyncStorage(loader Loader) *Store {
 
 // Validate recebe uma tupla PermissionClaim(fingerprint, scope), verifica se existe permissoes para elas na base,
 // retorna as claims (permissions) para esse PermissionClaim
-func (tc *Store) Validate(pc PermissionClaim) (PermissionsContainer, bool) {
+func (tc *Store) Validate(pc PermissionClaim) (Credential, bool) {
 	//Area Critica
 	log.Debugf("Validando fingerprint %s, path: %s,", pc.Fingerprint, pc.Scope)
 	//Area Critica detecta qual epoch está valido

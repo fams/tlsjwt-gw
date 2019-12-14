@@ -20,7 +20,7 @@ type CsvDB struct {
 func (c *CsvDB) LoadPermissions() (PermissionMap, bool) {
 	csvFile, err := os.Open(c.CsvPath)
 	if err != nil {
-		log.Errorf("Erro ao carregar arquivo de credenciais: %s, error: %s", c.CsvPath, err)
+		log.Errorf("csv: erro ao carregar arquivo de permissoes: %s, error: %s", c.CsvPath, err)
 		return nil, false
 	}
 	reader := csv.NewReader(bufio.NewReader(csvFile))
@@ -37,8 +37,8 @@ func (c *CsvDB) LoadPermissions() (PermissionMap, bool) {
 
 		//Cosntruindo array de permissoes
 		permlist := strings.Split(line[2], "|")
-		pc[PermissionClaim{line[0], line[1]}] = PermissionsContainer{permlist}
-//		pc[PermissionClaim{permSE.Fingerprint, permSE.Scopes[i].Name}] = PermissionsContainer{permSE.Scopes[i].Permissions}
+		pc[PermissionClaim{line[0], line[1]}] = Credential{line[1],permlist}
+//		pc[PermissionClaim{permSE.Fingerprint, permSE.Credentials[i].Scope}] = Credential{permSE.Credentials[i].Permissions}
 
 	}
 	log.Info("filtros carregados do CSV")

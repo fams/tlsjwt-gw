@@ -74,17 +74,17 @@ func main() {
 
 	// Chave de assinatura dos tokens emitidos pelo GW
 	privKeyPath := options.JwtConf.RsaPrivateFile
-	signBytes, err := ioutil.ReadFile(privKeyPath)
+	signKeyBytes, err := ioutil.ReadFile(privKeyPath)
 	fatal(err)
 
 	// Issuer usado pelo GW
 	localIssuer := options.JwtConf.LocalIssuer
 	log.Debugf("local Issuer: %s", localIssuer)
-	log.Debugf("authHeader: %s", options.AuthHeader)
+	log.Debugf("authzHeader: %s", options.AuthHeader)
 	log.Debugf("claimString: %s", options.ClaimString)
 
 	// Iniciando o gerenciador JWT
-	myJwtHandler := jwthandler.New(signBytes, localIssuer, options.JwtConf.TokenLifetime,options.JwtConf.Kid )
+	myJwtHandler := jwthandler.New(signKeyBytes, localIssuer, options.JwtConf.TokenLifetime, options.JwtConf.Kid )
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {

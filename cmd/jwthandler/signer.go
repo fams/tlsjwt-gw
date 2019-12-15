@@ -47,9 +47,9 @@ func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration, kid 
 }
 
 //
-// SignToken recebe uma lista de claims a ser adicionado ao JWT e o tempo de vida do token
+// GetSignedToken recebe uma lista de claims a ser adicionado ao JWT e o tempo de vida do token
 // Retorna um string JWS assinado com a chave privada do tratador de JWT instanciado
-func (j *JwtHandler) SignToken(customClaims map[string][]string, clientId string) (string, error) {
+func (j *JwtHandler) GetSignedToken(customClaims map[string][]string, clientId string) (string, error) {
 	//tokeninzador RS256
 
 	var claims jwt.MapClaims

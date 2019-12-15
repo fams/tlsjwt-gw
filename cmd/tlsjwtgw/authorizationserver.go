@@ -44,7 +44,8 @@ func (a *AuthorizationServer) CacheSet(principal authzman.PermissionClaim, token
 	a.credentialCache.Set(hash.String(), tokenString, cache.DefaultExpiration)
 }
 
-//BuldToken retorna o token jwt assinado baeado nos claims recebidos
+
+// GetAuthorizationToken Verifica se existe token em cache, se não tenta obter credenciais da base configurada
 func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.PermissionClaim, clientId string) (string, bool) {
 
 	if len(permissionClaim.Fingerprint) != 64 {
@@ -69,7 +70,8 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 
 			// Claims map
 			myClaims := make(map[string][]string)
-			myClaims["aud"]=claims.Permissions
+			claimString := a.Options.ClaimString
+			myClaims[claimString]=claims.Permissions
 
 			tokenString, err := a.jwtinstance.GetSignedToken(myClaims, clientId)
 
@@ -143,7 +145,9 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		return response, nil
 	}
 
+    //
     // Autorizacao por mTLS
+    //
 	//Header com fingerprint dos dados do certificado
 	clientCertHeader, _ := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
 	log.Debugf(clientCertHeader)
@@ -156,7 +160,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		scopeString = ""
 	}
 
-	// Obtem o fingerprint do mTLS
+	// Obtem dados do certificado
 	certParts, certPartsErr := FromClientCertHeader(clientCertHeader)
 
 	//Se tiver um fingerprint permitido Gera o JWT com as permissoes e aceita a requisicao
@@ -169,7 +173,6 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		// requisicao de autorizacao
 		permissionClaim := authzman.PermissionClaim{Fingerprint: certParts.hash, Scope: scopeString}
 
-		//FIXME Isso constroi o token, valida o mtls e gerencia o cache, muito confuso. Melhor repensar a ordem
 
 		// Verificar o cache, se exitir, retorna o cache, se não existir valida o token, se estiver válido constroi o
 		// token, salva em cache e retorna o header, se não for válido, passa para o caso não autorizado

@@ -181,7 +181,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			tokenSha := fmt.Sprintf("Bearer %s", token)
 			log.Debugf("Build token: %s", tokenSha)
 			// Caso UNAUTHENTICATED com Header Custom
-			response, _ := BuildResponse(0, "", map[string]string{"authHeader": tokenSha})
+			response, _ := BuildResponse(0, "", map[string]string{authHeader: tokenSha})
 			return response, nil
 		}
 	}else{

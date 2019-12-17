@@ -94,7 +94,11 @@ func main() {
 
 	// Chave de assinatura dos tokens emitidos pelo GW
 	privKeyPath := options.JwtConf.RsaPrivateFile
+
+	// Le a chave privada do algoritmo RSA
 	signKeyBytes, err := ioutil.ReadFile(privKeyPath)
+
+	// Chama a funcao Fatal na qual verifica se ha algum problema na leitura
 	fatal(err)
 
 	// Issuer usado pelo GW
@@ -104,15 +108,18 @@ func main() {
 	log.Debugf("claimString: %s", options.ClaimString)
 
 	// Iniciando o gerenciador JWT
+	// Instancia um JWTHandler invocando a funcao New do pacote jwthandler
 	myJwtHandler := jwthandler.New(signKeyBytes, localIssuer, options.JwtConf.TokenLifetime, options.JwtConf.Kid)
+
+	// Adiciona Issuers ao JWT gerado de acordo com a estrutura options
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
+		// Invoca a funcao que busca os issuers e aplica no JWT
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {
 			log.Fatalf("Erro carregando JWTconf: %s iss: %s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		}
 	}
 
-	//
 	// Inicializando Servidor de Autorizacao
 	// Injetando Cache de tokens, base de credenciais e gerenciador de JWT
 	authServer := &AuthorizationServer{
@@ -130,11 +137,13 @@ func main() {
 	}
 	log.Infof("listening on %s ", lis.Addr()) //,authServer.jwtinstance.GetConf())
 
+	// Inicia o Servidor GRPC
 	grpcServer := grpc.NewServer()
 
 	// Registrando o servidor de autenticacao no servidor GRPC
 	auth.RegisterAuthorizationServer(grpcServer, authServer)
 
+	// Verifica se o servidor esta escutando
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

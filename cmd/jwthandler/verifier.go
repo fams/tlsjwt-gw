@@ -25,15 +25,18 @@ type JSONWebKeys struct {
 	X5c []string `json:"x5c"`
 }
 
-// AddJWK adiciona um JWKS para a lista de issues e chaves publicas permitidas
+// AddJWK - adiciona um JWKS para a lista de issues e chaves publicas permitidas
 func (j *JwtHandler) AddJWK(issuer string, url string) error {
+	// Busca os issuers na URL descrita
 	set, err := jwk.Fetch(url)
+
 	if err != nil {
 		return err
 	}
-
+	// Atribui ao JWT
 	j.Jwks[issuer] = set
 
+	// Retorna sucesso
 	return nil
 
 }

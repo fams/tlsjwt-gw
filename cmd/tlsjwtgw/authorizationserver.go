@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-// Estrutura de controle do servidor
+// AuthorizationServer - Estrutura de controle do servidor
 type AuthorizationServer struct {
 	credentialCache   *cache.Cache
 	PermissionManager authzman.AuthzDB

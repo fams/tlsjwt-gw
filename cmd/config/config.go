@@ -145,6 +145,9 @@ func ReadConfig(filename string, defaults map[string]interface{}) (*viper.Viper,
 // Instancia um tipo PermissionDBConf e define as configuracoes de leitura de
 // provedor de credenciais
 // Instancia um tipo jwtConf e define configuracoes inicias do JWT
+// INFO Questao: Voce define somente 1 vez a variavel err. Se por acaso der um
+// erro na definicao de dados csv ele vai alterar a variavel err. existe o err
+// mas nao o retorno saindo da funcao
 func BuildOptions() (Options, error) {
 	// Retorna uma estrutura Viper com os dados de configuracoes default
 	v1, err := DefaultConf()

@@ -2,24 +2,28 @@
 //
 package main
 
+// Fams, verificar os // INFO que eu coloquei nos codigos
+
 import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
 	"fmt"
-	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-	"github.com/patrickmn/go-cache"
-	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	"github.com/patrickmn/go-cache"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
-// kill program
+// fatal - kill program
+// INFO o comentario que estava no
 func fatal(err error) {
 	if err != nil {
 		log.Fatal(err)
@@ -28,18 +32,23 @@ func fatal(err error) {
 
 func main() {
 	//v1, err := defaultConf()
+
+	// Instancia variaveis com informacoes de configuracao
 	var (
 		err     error
 		options c.Options
 	)
 
+	// Preenche a a estrutura opens com as configuracoes padroes de conexao com
+	// o provedor de credenciais, jwt, issuers, etc...
 	options, err = c.BuildOptions()
 	//fmt.Print(options)
 	if err != nil {
 		panic(fmt.Errorf("Error when reading config: %v\n", err))
 	}
-	//
-	// Configurando DEBUG
+
+	// Define-se o tipo de log que sera utilizado na aplicacao a partir da
+	// configuracao
 	switch options.Loglevel {
 	case "info":
 		log.SetLevel(log.InfoLevel)
@@ -47,23 +56,34 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	default:
 		log.SetLevel(log.InfoLevel)
-
 	}
 
+	// Le as permissoes situadas no provedor de credenciais e salva numa
+	// estrutura/interface que possui o semaforo, o waitgroup e elas.
 	// Iniciando o reconciliador de credenciais com o loader
 	//var PermissionManager authzman.AuthzDB
 	PermissionManager := authzman.NewPermDb(options.PermissionDB.Config)
 
+	// INFO nao sei o que essa funcao Async faz
 	if PermissionManager.Async() {
+		// captura o intervalo de tempo de requisicao
 		duration, err := time.ParseDuration(options.PermissionDB.Config.Options["interval"])
+		// se nao existe erro
 		if err == nil {
+			// Cria um novo ticker com duracao duration com Channel
+			// Ao utilizar um channel, ele enviara uma interrupcao ao final do
+			// ticker TODO
+			// INFO ele vai fazer uma interrupcao so ou vai fazer uma
+			// interrupcao a cada duration?
 			tick := time.NewTicker(duration)
+			// Inicia-se uma GoRoutine (que eh uma thread)
 			go PermissionManager.Init(tick)
-		}else{
-			log.Debugf("Não foi possivel converter %s para time.duration ",options.PermissionDB.Config.Options["interval"] )
+		} else {
+			log.Debugf("Não foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"])
 			fatal(err)
 		}
-	}else{
+		// TODO
+	} else {
 		log.Info("iniciando banco syncrono")
 		ticker := time.NewTicker(time.Second)
 		PermissionManager.Init(ticker)
@@ -84,7 +104,7 @@ func main() {
 	log.Debugf("claimString: %s", options.ClaimString)
 
 	// Iniciando o gerenciador JWT
-	myJwtHandler := jwthandler.New(signKeyBytes, localIssuer, options.JwtConf.TokenLifetime, options.JwtConf.Kid )
+	myJwtHandler := jwthandler.New(signKeyBytes, localIssuer, options.JwtConf.TokenLifetime, options.JwtConf.Kid)
 	for i := 0; i < len(options.JwtConf.Issuers); i++ {
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {
@@ -99,7 +119,7 @@ func main() {
 		credentialCache:   cache.New(options.PermissionDB.CacheInterval, options.PermissionDB.CacheClean),
 		PermissionManager: PermissionManager,
 		jwtinstance:       myJwtHandler,
-		Options: &options,
+		Options:           &options,
 	}
 
 	// create a TCP listener on port 4000

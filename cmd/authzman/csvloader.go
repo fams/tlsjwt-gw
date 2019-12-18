@@ -62,7 +62,7 @@ func (c *CsvDB) LoadPermissions() (PermissionMap, bool) {
 		//		pc[PermissionClaim{permSE.Fingerprint, permSE.Credentials[i].Scope}] = Credential{permSE.Credentials[i].Permissions}
 
 	}
-
+	csvFile.Close()
 	// Retorna a estrutura pc e a confirmacao de sucesso
 	log.Info("filtros carregados do CSV")
 	return pc, true

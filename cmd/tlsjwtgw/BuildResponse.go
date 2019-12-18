@@ -6,15 +6,17 @@ import (
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/googleapis/google/rpc"
 )
+
 const (
-	UNAUTH  = 1
-	OK		= 0
-	ERROr	= 3
+	UNAUTH = 1
+	OK     = 0
+	ERROr  = 3
 )
-func BuildResponse( status int, body string, headers map[string]string ) (*auth.CheckResponse, error){
+
+func BuildResponse(status int, body string, headers map[string]string) (*auth.CheckResponse, error) {
 	var response auth.CheckResponse
 
-	switch (status){
+	switch status {
 	case UNAUTH:
 		response = auth.CheckResponse{
 			Status: &rpc.Status{
@@ -32,7 +34,7 @@ func BuildResponse( status int, body string, headers map[string]string ) (*auth.
 	case OK:
 
 		if headers != nil {
-			var headerValues = make([]*core.HeaderValueOption,len(headers))
+			var headerValues = make([]*core.HeaderValueOption, len(headers))
 			var i int = 0
 			for key, value := range headers {
 				headerValues[i] = &core.HeaderValueOption{
@@ -42,7 +44,7 @@ func BuildResponse( status int, body string, headers map[string]string ) (*auth.
 					},
 				}
 			}
-			response =  auth.CheckResponse{
+			response = auth.CheckResponse{
 				Status: &rpc.Status{
 					Code: int32(rpc.OK),
 				},
@@ -52,8 +54,8 @@ func BuildResponse( status int, body string, headers map[string]string ) (*auth.
 					},
 				},
 			}
-		}else{
-			response =  auth.CheckResponse{
+		} else {
+			response = auth.CheckResponse{
 				Status: &rpc.Status{
 					Code: int32(rpc.OK),
 				},
@@ -66,4 +68,3 @@ func BuildResponse( status int, body string, headers map[string]string ) (*auth.
 	}
 	return &response, nil
 }
-

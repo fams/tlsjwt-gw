@@ -60,8 +60,8 @@ func NewPermDb(config config.DBConf) AuthzDB {
 		return NewMongoStorage(config)
 
 		// INFO eh melhor o default aqui do quer um return fora do switch case
+	default:
+		return nil
 	}
 
-	// INFO ao adicionar o default, nao precisa mais desse return
-	return nil
 }

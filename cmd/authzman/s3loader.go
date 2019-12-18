@@ -17,8 +17,6 @@ type S3DB struct {
 	Region     string
 }
 
-
-
 // Carrega as permissoes de um bucket s3
 func (s *S3DB) LoadPermissions() (PermissionMap, bool) {
 	//Nova Sessão com a AWS

@@ -69,7 +69,6 @@ func (tc *Store) sync(loader Loader) {
 	} else {
 		// Informa ao Go que a funcao desta thread ja finalizou seus
 		// procedimentos
-		tc.wg.Done()
 		// Fixme deve ser implementado um exponential backoff para a carga de credenciais
 		// Derrubar o validador não é uma opcao
 		log.Error("Erro reconciliando credenciais")
@@ -82,14 +81,14 @@ func (tc *Store) sync(loader Loader) {
 // INFO Isso eh uma thread que fica executando enquanto a aplicacao estiver
 // executando?
 func (tc *Store) Init(tick *time.Ticker) {
-	// Invoca a funcao sync
-	// INFO voce tem que fazer o add antes de chamar a funcao sync nao?
-	tc.sync(tc.loader)
+
 	// Diz para o Go que ha um grupo sendo executado e que ele nao pode
 	// finalizar a aplicacao enquanto a quantidade de grupos for Zero.
 	// Os numeros vao decrescendo ao utilizar a funcao tc.wg.Done()
 	tc.wg.Add(1)
 
+	// Invoca a funcao sync
+	tc.sync(tc.loader)
 	// INFO Pelo que eu entendi, ele repete a invocacao do sync ate que o ticker
 	// realize a interrupcao
 	// INFO mas se o sync faz um wg.done, nao deveria adiciar um add a cada
@@ -98,6 +97,9 @@ func (tc *Store) Init(tick *time.Ticker) {
 		// Invoca a funcao sync
 		tc.sync(tc.loader)
 	}
+
+	tc.wg.Done()
+
 }
 
 //// Recarga doo mapa de permissoes recebendo a funcao de carga inicial

@@ -27,6 +27,7 @@ type ClientcertHeaderParts struct {
 	hash    string
 	subject string
 }
+
 // GetCn obtem o principal do certificado do campo cn
 func (chp *ClientcertHeaderParts) GetCn() (string, error) {
 	var s, _ = strconv.Unquote(chp.subject)

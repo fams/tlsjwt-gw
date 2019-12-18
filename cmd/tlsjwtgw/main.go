@@ -65,6 +65,7 @@ func main() {
 	PermissionManager := authzman.NewPermDb(options.PermissionDB.Config)
 
 	// INFO nao sei o que essa funcao Async faz
+	var ticker *time.Ticker
 	if PermissionManager.Async() {
 		// captura o intervalo de tempo de requisicao
 		duration, err := time.ParseDuration(options.PermissionDB.Config.Options["interval"])
@@ -75,9 +76,9 @@ func main() {
 			// ticker TODO
 			// INFO ele vai fazer uma interrupcao so ou vai fazer uma
 			// interrupcao a cada duration?
-			tick := time.NewTicker(duration)
+			ticker = time.NewTicker(duration)
 			// Inicia-se uma GoRoutine (que eh uma thread)
-			go PermissionManager.Init(tick)
+			go PermissionManager.Init(ticker)
 		} else {
 			log.Debugf("Não foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"])
 			fatal(err)
@@ -85,7 +86,7 @@ func main() {
 		// TODO
 	} else {
 		log.Info("iniciando banco syncrono")
-		ticker := time.NewTicker(time.Second)
+		ticker = time.NewTicker(time.Second)
 		PermissionManager.Init(ticker)
 	}
 	//
@@ -152,6 +153,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
+	ticker.Stop()
 	grpcServer.Stop()
 
 }

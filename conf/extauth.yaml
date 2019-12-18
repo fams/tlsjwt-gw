@@ -1,6 +1,6 @@
 credentials:
   type: csv
-  reload: 15
+  reload: 15s
   path: fingerprints.csv
 ignorePaths:
   swagger: /v1/swagger-ui.html

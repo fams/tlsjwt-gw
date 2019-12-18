@@ -1,0 +1,4 @@
+FROM alpine:latest
+WORKDIR /
+COPY build/ext-auth-poc ./ext-auth-poc
+CMD ["./ext-auth-poc"]

@@ -1,91 +1,125 @@
 package authzman
 
 import (
-	"context"
 	"extauth/cmd/config"
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	log "github.com/sirupsen/logrus"
-	//"github.com/aws/aws-sdk-go/aws"
-	//"github.com/aws/aws-sdk-go/aws/session"
-	//"github.com/aws/aws-sdk-go/service/dynamodb"
-	//"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	//"fmt"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"time"
 )
 
-
+// DynamoCredential -
 type DynamoCredential struct {
 	Fingerprint string       `json:"fingerprint,omitempty" bson:"fingerprint,omitempty"`
-	Name  string             `json:"name,omitempty" bson:"name,omitempty"`
+	Name        string       `json:"name,omitempty" bson:"name,omitempty"`
 	Credentials []Credential `json:"credentials,omitempty" bson:"credentials,omitempty"`
 }
 
-
+// DynamoDB - Estrutura con informacoes de acesso ao provedor de credenciais
 type DynamoDB struct {
-	uri string
-	database    string
-	client *mongo.Client
+	region    string
+	tableName string
+	svc       *dynamodb.DynamoDB
 }
-func NewDynamoStorage(config config.DBConf) (*DynamoDB){
-	log.Debugf("criando objeto dynamodb com uri: %s e db: %s",config.Options["uri"], config.Options["database"])
+
+// NewDynamoStorage -
+func NewDynamoStorage(config config.DBConf) *DynamoDB {
+	log.Debugf("criando objeto dynamodb com uri: %s e db: %s", config.Options["uri"], config.Options["database"])
 	db := new(DynamoDB)
-	db.uri = config.Options["uri"]
-	db.database = config.Options["database"]
+	db.tableName = config.Options["table"]
+	db.region = config.Options["region"]
+
 	return db
 }
 
-
-// Carrega as permissoes de um bucket s3
+// LoadPermissions - Carrega as permissoes de um bucket s3
 func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
-		return nil, false
+
+	return nil, false
 }
+
+// Validate -
 func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 
-	log.Debugf("mongodb: Validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
+	log.Debugf("dynamodb: validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
 	okClaims := false
-	var claims  Credential
-	credential := MongoCredential{}
+	var claims Credential
 
-	collection := s.client.Database(s.database).Collection("permission")
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	filter := bson.D{{ "fingerprint" , pc.Fingerprint}}
-	err := collection.FindOne(ctx, filter).Decode(&credential)
+	// Faz uma busca no DynamoDB a procura de um item que corresponda ao
+	// atribudo fingerprint especificado
+	result, err := s.svc.GetItem(
+		&dynamodb.GetItemInput{
+			TableName: aws.String(s.tableName),
+			Key: map[string]*dynamodb.AttributeValue{
+				"fingerprint": {
+					S: aws.String(pc.Fingerprint),
+				},
+			},
+		},
+	)
+
+	// Verifica se a busca retornou erros
 	if err != nil {
-		// ErrNoDocuments means that the filter did not match any documents in the collection
-		if err == mongo.ErrNoDocuments {
-			return claims, okClaims
-		}
-		log.Fatal(err)
+		panic(fmt.Sprintf("dynamodb: falha buscar dados no dynamodb, %v", err))
+		fmt.Println(err.Error())
+		return claims, okClaims
 	}
 
-	log.Debugf("mongodb: [%d]credenciais encontradas para fingerprint %s",len(credential.Credentials),pc.Fingerprint)
+	// Instancia uma estrutura para o armazenamento das credenciais
+	credential := DynamoCredential{}
+
+	// Mapeia o item recuperado do dynamodb para
+	err = dynamodbattribute.UnmarshalMap(result.Item, &credential)
+
+	if err != nil {
+		panic(fmt.Sprintf("dynamodb: falha ao mapear o dado recuperado no dynamoDB na aplicacao, %v", err))
+		return claims, okClaims
+	}
+
+	if credential.Fingerprint == "" {
+		// TODO Melhorar meus logs de saida
+		fmt.Println("dynamodb: fingerprint recuperado eh vazio. Nao encontrou-se a credencial no provedor remoto dynamodb")
+		return claims, okClaims
+	}
+
+	log.Debugf("dynamodb: [%d]credenciais encontradas para fingerprint %s", len(credential.Credentials), pc.Fingerprint)
+
 	for idx := range credential.Credentials {
-		log.Debugf("Testando fingerprint %s, Scope requisitado %s, scope encontrado %s",pc.Fingerprint,pc.Scope,credential.Credentials[idx].Scope)
+		log.Debugf("dynamodb: testando fingerprint %s, Scope requisitado %s, scope encontrado %s", pc.Fingerprint, pc.Scope, credential.Credentials[idx].Scope)
 		if credential.Credentials[idx].Scope == pc.Scope {
-			log.Debugf("mongodb: credential %s",credential.Credentials[idx])
+			log.Debugf("dynamodb: credential %s", credential.Credentials[idx])
 			okClaims = true
 			claims = credential.Credentials[idx]
 		}
 	}
-	log.Debugf("mongodb: CredentialEntry %s",credential)
+	log.Debugf("dynamodb: CredentialEntry %s", credential)
+
 	return claims, okClaims
 
 }
-func (s *DynamoDB) Async () bool{
+
+// Async -
+func (s *DynamoDB) Async() bool {
 	return false
 }
 
+// Init -
 func (s *DynamoDB) Init(ticker *time.Ticker) {
-	log.Debugf("conectando em %s, uri:%s",s.uri, s.database)
+
+	//Nova Sessão com a AWS
+	log.Debugf("Iniciando sessao com DynamoDB")
+
+	log.Debugf("conectando em %s, uri:%s", s.uri, s.database)
 	ticker.Stop()
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	clientOptions := options.Client().ApplyURI(s.uri)
-	var err  error
-	s.client, err = mongo.Connect(ctx, clientOptions)
-	if err != nil {
-		log.Fatalf("nao foi possivel conectar no banco com o uri:%s", s.uri)
-	}
+	sess, _ := session.NewSession(&aws.Config{
+		Region: aws.String(s.region)},
+	)
+
+	// Cria um cliente DynamoDB
+	s.svc = dynamodb.New(sess)
 }

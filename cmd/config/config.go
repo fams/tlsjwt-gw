@@ -179,10 +179,12 @@ func BuildOptions() (Options, error) {
 	case "dynamodb":
 		param := make(map[string]string)
 
-		param["tablename"] = v1.GetString("credentials.tablename")
+		param["tableName"] = v1.GetString("credentials.tableName")
+		param["region"] = v1.GetString("credentials.region")
 		opt.PermissionDB.Config = DBConf{param, "dynamodb"}
 
-		log.Debug("using dynamodb with table %s", v1.GetString("credentials.tablename"))
+		log.Debug("using dynamodb with table %s", v1.GetString("credentials.tableName"))
+		log.Printf("RODOLFOSLOG: using dynamodb with table %s", v1.GetString("credentials.tableName"))
 
 	case "csv":
 		//path := v1.GetString("credentials.path")

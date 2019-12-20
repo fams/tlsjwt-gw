@@ -16,3 +16,5 @@ require (
 	go.mongodb.org/mongo-driver v1.1.3
 	google.golang.org/grpc v1.21.0
 )
+
+go 1.13

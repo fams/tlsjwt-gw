@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-
 // Structured version of Claims Section, as referenced at
 // https://tools.ietf.org/html/rfc7519#section-4.1
 // See examples for how to use this with your own claim types
@@ -20,29 +19,36 @@ func fatal(err error) {
 	}
 }
 
+// JwtHandler - Estrutura que armazena as inforações do JWT Gerado
 type JwtHandler struct {
-	signKey           *rsa.PrivateKey
-	localIssuer       string
+	signKey     *rsa.PrivateKey
+	localIssuer string
 	//AuthorizedIssuers map[string]*Jwks
-	Jwks              map[string]*jwk.Set
-	tokenLifetime     time.Duration
-	kid               string
+	Jwks          map[string]*jwk.Set
+	tokenLifetime time.Duration
+	kid           string
 }
 
-//
-// New recebe um []byte com a chave privada para assinar os tokens e o emissor,
+// New - recebe um []byte com a chave privada para assinar os tokens e o emissor,
 // Retorna o tratador de JWT
 func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration, kid string) *JwtHandler {
+	// Instancia uma nova estrutura JWT
 	j := new(JwtHandler)
 	var err error
+	// Atribui informacoes a ela
 	j.localIssuer = localIssuer
+	// Cria uma nova chave para o JWT
 	j.signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	j.tokenLifetime = tokenLifetime
-	j.kid	= kid
+	j.kid = kid
 	//j.AuthorizedIssuers = make(map[string]*Jwks)
+	// Atribui um mapa ao JWKS utilizando o jwk.set importado
 	j.Jwks = make(map[string]*jwk.Set)
 
+	// Verifica a existencia de erro
 	fatal(err)
+
+	// Retorna o novo JWT
 	return j
 }
 
@@ -62,10 +68,10 @@ func (j *JwtHandler) GetSignedToken(customClaims map[string][]string, clientId s
 	}
 	for claimName, claimList := range customClaims {
 		if len(customClaims[claimName]) > 1 {
-			log.Debugf("Gerando claims para %d %s", len(claimList),claimName)
-			claims[claimName]=claimList
+			log.Debugf("Gerando claims para %d %s", len(claimList), claimName)
+			claims[claimName] = claimList
 		} else {
-			claims[claimName]=claimList[0]
+			claims[claimName] = claimList[0]
 		}
 	}
 	// FIXME Assinatura do token, RS256 é HardCoded
@@ -79,6 +85,7 @@ func (j *JwtHandler) GetSignedToken(customClaims map[string][]string, clientId s
 	return tokenString, err
 }
 
+// GetConf -
 func (j *JwtHandler) GetConf() string {
 	return fmt.Sprintf("Local Issuer: %s\n privKey: %v", j.localIssuer, j.signKey)
 }

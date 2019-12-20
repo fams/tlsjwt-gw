@@ -7,14 +7,16 @@ import (
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
 	"fmt"
+
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
+
 	//"crypto/x509"
 	"strings"
 )
 
-// Estrutura de controle do servidor
+// AuthorizationServer - Estrutura de controle do servidor
 type AuthorizationServer struct {
 	credentialCache   *cache.Cache
 	PermissionManager authzman.AuthzDB
@@ -22,7 +24,7 @@ type AuthorizationServer struct {
 	Options           *c.Options
 }
 
-func (a *AuthorizationServer) CacheGet(principal authzman.PermissionClaim) (string, bool){
+func (a *AuthorizationServer) CacheGet(principal authzman.PermissionClaim) (string, bool) {
 	var hash strings.Builder
 	hash.WriteString(principal.Fingerprint)
 	hash.WriteString(":")
@@ -32,18 +34,17 @@ func (a *AuthorizationServer) CacheGet(principal authzman.PermissionClaim) (stri
 	if found {
 		log.Debug("Cache encontrado ", cachedToken.(string))
 		return cachedToken.(string), true
-	}else{
+	} else {
 		return "", false
 	}
 }
-func (a *AuthorizationServer) CacheSet(principal authzman.PermissionClaim, tokenString string){
+func (a *AuthorizationServer) CacheSet(principal authzman.PermissionClaim, tokenString string) {
 	var hash strings.Builder
 	hash.WriteString(principal.Fingerprint)
 	hash.WriteString(":")
 	hash.WriteString(principal.Scope)
 	a.credentialCache.Set(hash.String(), tokenString, cache.DefaultExpiration)
 }
-
 
 // GetAuthorizationToken Verifica se existe token em cache, se não tenta obter credenciais da base configurada
 func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.PermissionClaim, clientId string) (string, bool) {
@@ -59,7 +60,7 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 		log.Debug("Cache encontrado ", cachedToken)
 		return cachedToken, true
 	} else {
-		log.Debugf("nao encontrei credentialCache para %s, scope: %s, buscando no storage", permissionClaim.Fingerprint,permissionClaim.Scope)
+		log.Debugf("nao encontrei credentialCache para %s, scope: %s, buscando no storage", permissionClaim.Fingerprint, permissionClaim.Scope)
 
 		//Verifica se existem credenciais para esse claim
 		claims, okClaim := a.PermissionManager.Validate(permissionClaim)
@@ -71,7 +72,7 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 			// Claims map
 			myClaims := make(map[string][]string)
 			claimString := a.Options.ClaimString
-			myClaims[claimString]=claims.Permissions
+			myClaims[claimString] = claims.Permissions
 
 			tokenString, err := a.jwtinstance.GetSignedToken(myClaims, clientId)
 
@@ -100,7 +101,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	// Caso UNAUTHENTICATED com Body customizado
 	if !a.Options.EnableOptions {
 		if req.Attributes.Request.Http.Method == "OPTIONS" {
-			response, _ :=  BuildResponse(1,"<em>Options Invalid<em>",nil)
+			response, _ := BuildResponse(1, "<em>Options Invalid<em>", nil)
 			return response, nil
 		}
 	}
@@ -119,16 +120,15 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		// Response ok par token valido e false para token invalido
 		if ok {
 			// Caso Allowed sem modificacao
-			response, _ :=  BuildResponse(0,"",nil)
+			response, _ := BuildResponse(0, "", nil)
 			return response, nil
 		} else {
 			log.Debugf("Received Error %s", err)
 			// Caso UNAUTHENTICATED com Body custom
-			response, _ :=  BuildResponse(1,"<em>Invalid JWT<em>",nil)
+			response, _ := BuildResponse(1, "<em>Invalid JWT<em>", nil)
 			return response, nil
 		}
 	}
-
 
 	// Verificando se o request e destinado ao endpoint de autenticacao interno
 
@@ -141,13 +141,13 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	// Caso Allowed sem modificacao
 	if hostname == a.Options.Oidc.Hostname && len(path) > len(a.Options.Oidc.Path) && a.Options.Oidc.Path == path[:len(a.Options.Oidc.Path)] {
 		log.Debugf("Auth request")
-		response, _ :=  BuildResponse(0,"",nil)
+		response, _ := BuildResponse(0, "", nil)
 		return response, nil
 	}
 
-    //
-    // Autorizacao por mTLS
-    //
+	//
+	// Autorizacao por mTLS
+	//
 	//Header com fingerprint dos dados do certificado
 	clientCertHeader, _ := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
 	log.Debugf(clientCertHeader)
@@ -168,15 +168,14 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		log.Debugf("Fingerprint: %s recebido", certParts.hash)
 
 		//Se possivel, obtem o cn para construir o subject do token
-		cn , _ := certParts.GetCn()
+		cn, _ := certParts.GetCn()
 
 		// requisicao de autorizacao
 		permissionClaim := authzman.PermissionClaim{Fingerprint: certParts.hash, Scope: scopeString}
 
-
 		// Verificar o cache, se exitir, retorna o cache, se não existir valida o token, se estiver válido constroi o
 		// token, salva em cache e retorna o header, se não for válido, passa para o caso não autorizado
-		token, okToken := a.GetAuthorizationToken(permissionClaim,cn)
+		token, okToken := a.GetAuthorizationToken(permissionClaim, cn)
 		if okToken {
 			tokenSha := fmt.Sprintf("Bearer %s", token)
 			log.Debugf("Build token: %s", tokenSha)
@@ -184,13 +183,13 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			response, _ := BuildResponse(0, "", map[string]string{authHeader: tokenSha})
 			return response, nil
 		}
-	}else{
-		log.Debugf("Error certificate parts incomplete %v",certPartsErr)
+	} else {
+		log.Debugf("Error certificate parts incomplete %v", certPartsErr)
 	}
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao
 	log.Debugf("Retornando unauth\n")
 	// Caso UNAUTHENTICATED com Body Custom
-	response, _ := BuildResponse(1,"<em>No allowed auth method to access protected resource<em>", nil )
+	response, _ := BuildResponse(1, "<em>No allowed auth method to access protected resource<em>", nil)
 	return response, nil
 }

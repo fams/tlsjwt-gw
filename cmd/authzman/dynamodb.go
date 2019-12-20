@@ -114,12 +114,12 @@ func (s *DynamoDB) Init(ticker *time.Ticker) {
 	//Nova Sessão com a AWS
 	log.Debugf("Iniciando sessao com DynamoDB")
 
-	log.Debugf("conectando em %s, uri:%s", s.uri, s.database)
+	log.Debugf("conectando na tabela %s, do dynamodb", s.tableName)
 	ticker.Stop()
+
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(s.region)},
 	)
-
 	// Cria um cliente DynamoDB
 	s.svc = dynamodb.New(sess)
 }

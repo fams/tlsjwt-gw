@@ -2,7 +2,7 @@
 //
 package main
 
-// Fams, verificar os // INFO que eu coloquei nos codigos
+// TODO FAMS, verificar os // INFO que eu coloquei nos codigos
 
 import (
 	"extauth/cmd/authzman"
@@ -47,8 +47,11 @@ func main() {
 		panic(fmt.Errorf("Error when reading config: %v\n", err))
 	}
 
+	// INFO Isso tem que se a primeira coisa a ser definida no projeto, voce
+	// espera passar toda a construcao do options para habilitar o level log.
 	// Define-se o tipo de log que sera utilizado na aplicacao a partir da
 	// configuracao
+
 	switch options.Loglevel {
 	case "info":
 		log.SetLevel(log.InfoLevel)
@@ -63,6 +66,11 @@ func main() {
 	// Iniciando o reconciliador de credenciais com o loader
 	//var PermissionManager authzman.AuthzDB
 	PermissionManager := authzman.NewPermDb(options.PermissionDB.Config)
+
+	// Verifica se nao ocorreu algum erro na criacao da estrutura
+	if PermissionManager == nil {
+		panic(fmt.Errorf("Error when creating a new Permission DB\n"))
+	}
 
 	// INFO nao sei o que essa funcao Async faz
 	if PermissionManager.Async() {
@@ -88,6 +96,7 @@ func main() {
 		ticker := time.NewTicker(time.Second)
 		PermissionManager.Init(ticker)
 	}
+
 	//
 	// Configurando o JWT Handler
 	//

@@ -176,6 +176,14 @@ func BuildOptions() (Options, error) {
 	// de acesso ao
 	// provedor que armazena as credenciais
 	switch v1.GetString("credentials.type") {
+	case "dynamodb":
+		param := make(map[string]string)
+
+		param["tablename"] = v1.GetString("credentials.tablename")
+		opt.PermissionDB.Config = DBConf{param, "dynamodb"}
+
+		log.Debug("using dynamodb with table %s", v1.GetString("credentials.tablename"))
+
 	case "csv":
 		//path := v1.GetString("credentials.path")
 		//var param map[string]interface{}

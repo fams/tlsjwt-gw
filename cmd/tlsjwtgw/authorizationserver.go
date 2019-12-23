@@ -189,6 +189,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 	// Sem Autorizacao, mTLS, ou caminho permitido, retorna falha de autenticacao
 	log.Debugf("Retornando unauth\n")
+	// INFO Nao esta retornando a resposta
 	// Caso UNAUTHENTICATED com Body Custom
 	response, _ := BuildResponse(1, "<em>No allowed auth method to access protected resource<em>", nil)
 	return response, nil

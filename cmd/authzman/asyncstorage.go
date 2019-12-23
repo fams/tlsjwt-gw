@@ -168,11 +168,8 @@ func (tc *Store) Validate(pc PermissionClaim) (Credential, bool) {
 	// Fixme, nao sei se preciso implementar area critica para leitura do mapa, uma vez
 	//  que ele é sempre gravado para frente
 	claims, okClaims := tc.permMapStorage[epoch][pc]
-	if okClaims {
-		return claims, true
-	} else {
-		return claims, false
-	}
+
+	return claims, okClaims
 }
 
 // Async -

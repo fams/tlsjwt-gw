@@ -2,7 +2,6 @@ package authzman
 
 import (
 	"extauth/cmd/config"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -30,12 +29,11 @@ type DynamoDB struct {
 // NewDynamoStorage -
 func NewDynamoStorage(config config.DBConf) *DynamoDB {
 	log.Debugf("criando objeto dynamodb com tablename: %s e region: %s", config.Options["tableName"], config.Options["region"])
-	log.Printf("RODOLFOSLOG: criando objeto dynamodb com tablename: %s e region: %s", config.Options["tableName"], config.Options["region"])
 	db := new(DynamoDB)
 	db.tableName = config.Options["tableName"]
 	db.region = config.Options["region"]
 
-	log.Printf("RODOLFOSLOG: DADOS GRAVAODOS %s e %s", db.tableName, db.region)
+	log.Debugf("RLOG: DADOS GRAVAODOS %s e %s", db.tableName, db.region)
 
 	return db
 }
@@ -51,14 +49,13 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 
 	// INFO Nao esta imprimindo o pc.scope nos meus testes de dynamo
 	log.Debugf("dynamodb: validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
-	log.Printf("RODOLFOSLOS: dynamodb: validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
 	okClaims := false
 	var claims Credential
 
-	log.Printf("RODOLFOSLOG: BUSCANDO ITEM NO DYNAMO\n")
+	log.Debugf("dynamodb: buscando item no dynamodb")
 
-	// Faz uma busca no DynamoDB a procura de um item que corresponda ao
-	// atribudo fingerprint especificado
+	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
+	// fingerprint possui
 	result, err := s.svc.GetItem(
 		&dynamodb.GetItemInput{
 			TableName: aws.String(s.tableName),
@@ -70,49 +67,70 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 		},
 	)
 
-	log.Printf("RODOLFOSLOG: BUSCA REALIZADA \n")
-
 	// Verifica se a busca retornou erros
 	if err != nil {
-		panic(fmt.Sprintf("dynamodb: falha buscar dados no dynamodb, %v", err))
-		fmt.Println(err.Error())
+		log.Infof("dynamodb: falha buscar dados no dynamodb: %v", err)
 		return claims, okClaims
 	}
 
 	// Instancia uma estrutura para o armazenamento das credenciais
 	credential := DynamoCredential{}
 
-	log.Printf("RODOLFOSLOG: MAPEANDO O ITEM NUMA ESTRUTURA LOCAL\n")
+	log.Debugf("dynamodb: mapeando o item encontrado na estrutura de memoria local")
 	// Mapeia o item recuperado do dynamodb para
 	err = dynamodbattribute.UnmarshalMap(result.Item, &credential)
 
-	log.Printf("RODOLFOSLOG: VERIFICANDO ERROS\n")
+	log.Debugf("dynamodb: verificando existencia de erros no mapeamento")
 	if err != nil {
-		panic(fmt.Sprintf("dynamodb: falha ao mapear o dado recuperado no dynamoDB na aplicacao, %v", err))
+		log.Infof("dynamodb: falha ao mapear o dado recuperado no dynamoDB na aplicacao, %v", err)
 		return claims, okClaims
 	}
-	log.Printf("RODOLFOSLOG: VERIFICANDO FINGERPRINT VAZIO\n")
+
+	log.Debugf("dynamodb: verificando se fingerprint eh vazio")
 
 	if credential.Fingerprint == "" {
-		// TODO Melhorar meus logs de saida
-		fmt.Println("dynamodb: fingerprint recuperado eh vazio. Nao encontrou-se a credencial no provedor remoto dynamodb")
+		log.Infof("dynamodb: fingerprint recuperado eh vazio. Nao encontrou-se a credencial no provedor remoto dynamodb")
 		return claims, okClaims
 	}
 
-	log.Debugf("dynamodb: [%d]credenciais encontradas para fingerprint %s", len(credential.Credentials), pc.Fingerprint)
+	log.Debugf("dynamodb: [%d] credenciais encontradas para fingerprint %s", len(credential.Credentials), pc.Fingerprint)
 
-	log.Printf("RODOLFOSLOG: VERIFICANDO CLAIMS\n")
+	// Dynamodb nao aceita valores vazios, entao trocou-se todos os campos
+	// vazios para '.'. Dessa forma ao procurar por:
+	// - por um scope vazio '', procura-se por '.'
+	// - por um scope 'escopo-a', procura-se por 'escopo-a'
+	// - por um scope '.', retorna unauth pois nao aceita valores indefinidos
+	// sendo '.' categorizado como indefinido.
+	var escopoRequisicao string
+
+	// Verifica se eh escopo vazio
+	log.Debugf("dynamodb: checando o escopo recebido")
+	if pc.Scope == "" {
+		log.Debugf("dynamodb: scopo esta vazio, trocando para '.'")
+		escopoRequisicao = "."
+		// Verifica se o escopo possui algum nome diferente de '.'
+	} else if pc.Scope != "." {
+		log.Debugf("dynamodb: escopo esta preenchido, mantendo-o dessa forma")
+		escopoRequisicao = pc.Scope
+		// Igual a '.', entao retorna falso
+	} else {
+		log.Debugf("dynamodb: escopo recebido igual a '.', retornando falso")
+		return claims, okClaims
+	}
+
+	log.Debugf("dynamodb: checando permissao de escopos")
 	for idx := range credential.Credentials {
 		log.Debugf("dynamodb: testando fingerprint %s, Scope requisitado %s, scope encontrado %s", pc.Fingerprint, pc.Scope, credential.Credentials[idx].Scope)
-		if credential.Credentials[idx].Scope == pc.Scope {
+		if credential.Credentials[idx].Scope == escopoRequisicao {
 			log.Debugf("dynamodb: credential %s", credential.Credentials[idx])
 			okClaims = true
+			log.Debugf("dynamodb: escopo encontrado")
 			claims = credential.Credentials[idx]
 		}
 	}
-	log.Debugf("dynamodb: CredentialEntry %s", credential)
 
-	log.Printf("RODOLFOSLOG: FIM DO VERIFICADOR\n")
+	log.Debugf("dynamodb: CredentialEntry %s", credential)
+	log.Debugf("dynamodb: fim do validate")
 	return claims, okClaims
 
 }
@@ -126,20 +144,18 @@ func (s *DynamoDB) Async() bool {
 func (s *DynamoDB) Init(ticker *time.Ticker) {
 
 	//Nova Sessão com a AWS
-	log.Debugf("Iniciando sessao com DynamoDB")
-	log.Printf("RODOLFOSLOG: Iniciando sessao com DynamoDB\n")
+	log.Debugf("dynamodb: Iniciando sessao com DynamoDB")
 
-	log.Debugf("conectando na tabela %s, do dynamodb", s.tableName)
-	log.Printf("RODOLFOSLOG: conectando na tabela %s, do dynamodb, na regiao %s \n", s.tableName, s.region)
+	log.Debugf("dynamodb: conectando na tabela %s, do dynamodb, na regiao %s ", s.tableName, s.region)
 	ticker.Stop()
 
 	// INFO nao se testa erro nesta funcao, deveria
-	log.Printf("RODOLFOSLOG: \n")
+	log.Debugf("dynamodb: criando uma sessao")
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(s.region)},
 	)
 
-	log.Printf("RODOLFOSLOG: Criando um client Dynamo\n")
+	log.Debugf("dynamodb: criando um client Dynamo")
 	// Cria um cliente DynamoDB
 	s.svc = dynamodb.New(sess)
 }

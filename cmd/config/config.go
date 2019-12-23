@@ -184,7 +184,7 @@ func BuildOptions() (Options, error) {
 		opt.PermissionDB.Config = DBConf{param, "dynamodb"}
 
 		log.Debug("using dynamodb with table %s", v1.GetString("credentials.tableName"))
-		log.Printf("RODOLFOSLOG: using dynamodb with table %s", v1.GetString("credentials.tableName"))
+		log.Debugf("RLOG: using dynamodb with table %s", v1.GetString("credentials.tableName"))
 
 	case "csv":
 		//path := v1.GetString("credentials.path")

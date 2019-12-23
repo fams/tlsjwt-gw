@@ -44,6 +44,7 @@ func main() {
 	options, err = c.BuildOptions()
 	//fmt.Print(options)
 	if err != nil {
+		log.Infof("Error when reading config: %v", err)
 		panic(fmt.Errorf("Error when reading config: %v\n", err))
 	}
 

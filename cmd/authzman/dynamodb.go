@@ -15,9 +15,20 @@ import (
 )
 
 var (
+	// Contador de quantas credencias de sucesso foram realizadas
+	totalCredenciais = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_credenciais_total",
+		Help: "O numero total de credenciais, tanto insucesso como sucesso",
+	})
+	// Contador de quantas credencias de sucesso foram realizadas
 	totalCredenciaisSucesso = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gtw_credenciais_sucesso",
-		Help: "The total number of credentials gave successfuly",
+		Help: "O numero total de credenciais emitidas com sucesso",
+	})
+	// Contador de quantas credencias nao foram emitidas por algum motivo
+	totalCredenciaisInsucesso = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_credenciais_insucesso",
+		Help: "O numero total de credenciais nao emitidas, ou seja com insucesso",
 	})
 )
 
@@ -55,7 +66,7 @@ func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
 
 // Validate -
 func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
-
+	totalCredenciais.Inc()
 	// INFO Nao esta imprimindo o pc.scope nos meus testes de dynamo
 	log.Debugf("dynamodb: validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
 	okClaims := false
@@ -79,6 +90,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	// Verifica se a busca retornou erros
 	if err != nil {
 		log.Infof("dynamodb: falha buscar dados no dynamodb: %v", err)
+		totalCredenciaisInsucesso.Inc()
 		return claims, okClaims
 	}
 
@@ -92,6 +104,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	log.Debugf("dynamodb: verificando existencia de erros no mapeamento")
 	if err != nil {
 		log.Infof("dynamodb: falha ao mapear o dado recuperado no dynamoDB na aplicacao, %v", err)
+		totalCredenciaisInsucesso.Inc()
 		return claims, okClaims
 	}
 
@@ -99,6 +112,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 
 	if credential.Fingerprint == "" {
 		log.Infof("dynamodb: fingerprint recuperado eh vazio. Nao encontrou-se a credencial no provedor remoto dynamodb")
+		totalCredenciaisInsucesso.Inc()
 		return claims, okClaims
 	}
 
@@ -124,6 +138,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 		// Igual a '.', entao retorna falso
 	} else {
 		log.Debugf("dynamodb: escopo recebido igual a '.', retornando falso")
+		totalCredenciaisInsucesso.Inc()
 		return claims, okClaims
 	}
 

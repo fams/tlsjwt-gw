@@ -8,6 +8,7 @@ import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
+	"flag"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -18,13 +19,13 @@ import (
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-
 	// Prometheus packages
-
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+var addr = flag.String("listen-address", ":2112", "The address to listen on for HTTP requests.")
 
 func main() {
 	//v1, err := defaultConf()
@@ -35,8 +36,10 @@ func main() {
 		options c.Options
 	)
 
+	// inicia o servico do http prometheus na porta addr
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":2112", nil)
+	// Verificar se nao esta fazendo lock na invocacao
+	go http.ListenAndServe(*addr, nil)
 
 	// Preenche a a estrutura opens com as configuracoes padroes de conexao com
 	// o provedor de credenciais, jwt, issuers, etc...

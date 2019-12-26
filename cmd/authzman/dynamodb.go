@@ -16,19 +16,40 @@ import (
 
 var (
 	// Contador de quantas credencias de sucesso foram realizadas
+	tempoBuscaCredenciais = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "gtw_credenciais_tempo_busca",
+		Help: "Tempo de busca da ultima credencial no provedor",
+	})
+
+	// Contador de quantas credencias de sucesso foram realizadas
 	totalCredenciais = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gtw_credenciais_total",
 		Help: "O numero total de credenciais, tanto insucesso como sucesso",
 	})
-	// Contador de quantas credencias de sucesso foram realizadas
-	totalCredenciaisSucesso = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_credenciais_sucesso",
+	// Contador de quantas credencias foram concedidas
+	totalCredenciaisConcedidas = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_credenciais_concedidas",
 		Help: "O numero total de credenciais emitidas com sucesso",
 	})
-	// Contador de quantas credencias nao foram emitidas por algum motivo
-	totalCredenciaisInsucesso = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_credenciais_insucesso",
-		Help: "O numero total de credenciais nao emitidas, ou seja com insucesso",
+	// Contador de quantas credencias que nao foram cometidas
+	totalCredenciaisNegadas = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_credenciais_negadas",
+		Help: "O numero total de credenciais negadas por algum motivo",
+	})
+
+	// Mostra a performance do tempo de busca no provedor de credenciais
+	summaryBuscaItem = promauto.NewSummary(prometheus.SummaryOpts{
+		Name: "gtw_summary_busca_item",
+		Help: "Summary de conexao para buscar um item no provedor de credenciais",
+		// Como serao exibidos os percentis
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	})
+
+	// Mostra a performance do tempo de busca no provedor de credenciais
+	histogramBuscaItem = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "gtw_histogram_busca_item",
+		Help:    "Tempo de conexao para buscar um item no provedor de credenciais",
+		Buckets: prometheus.LinearBuckets(25, 100, 20),
 	})
 )
 
@@ -66,57 +87,14 @@ func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
 
 // Validate -
 func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
+
+	// Incrementa o numero de credencias ja operadas
 	totalCredenciais.Inc()
+
 	// INFO Nao esta imprimindo o pc.scope nos meus testes de dynamo
 	log.Debugf("dynamodb: validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
 	okClaims := false
 	var claims Credential
-
-	log.Debugf("dynamodb: buscando item no dynamodb")
-
-	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
-	// fingerprint possui
-	result, err := s.svc.GetItem(
-		&dynamodb.GetItemInput{
-			TableName: aws.String(s.tableName),
-			Key: map[string]*dynamodb.AttributeValue{
-				"fingerprint": {
-					S: aws.String(pc.Fingerprint),
-				},
-			},
-		},
-	)
-
-	// Verifica se a busca retornou erros
-	if err != nil {
-		log.Infof("dynamodb: falha buscar dados no dynamodb: %v", err)
-		totalCredenciaisInsucesso.Inc()
-		return claims, okClaims
-	}
-
-	// Instancia uma estrutura para o armazenamento das credenciais
-	credential := DynamoCredential{}
-
-	log.Debugf("dynamodb: mapeando o item encontrado na estrutura de memoria local")
-	// Mapeia o item recuperado do dynamodb para
-	err = dynamodbattribute.UnmarshalMap(result.Item, &credential)
-
-	log.Debugf("dynamodb: verificando existencia de erros no mapeamento")
-	if err != nil {
-		log.Infof("dynamodb: falha ao mapear o dado recuperado no dynamoDB na aplicacao, %v", err)
-		totalCredenciaisInsucesso.Inc()
-		return claims, okClaims
-	}
-
-	log.Debugf("dynamodb: verificando se fingerprint eh vazio")
-
-	if credential.Fingerprint == "" {
-		log.Infof("dynamodb: fingerprint recuperado eh vazio. Nao encontrou-se a credencial no provedor remoto dynamodb")
-		totalCredenciaisInsucesso.Inc()
-		return claims, okClaims
-	}
-
-	log.Debugf("dynamodb: [%d] credenciais encontradas para fingerprint %s", len(credential.Credentials), pc.Fingerprint)
 
 	// Dynamodb nao aceita valores vazios, entao trocou-se todos os campos
 	// vazios para '.'. Dessa forma ao procurar por:
@@ -138,9 +116,65 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 		// Igual a '.', entao retorna falso
 	} else {
 		log.Debugf("dynamodb: escopo recebido igual a '.', retornando falso")
-		totalCredenciaisInsucesso.Inc()
+		totalCredenciaisNegadas.Inc()
 		return claims, okClaims
 	}
+
+	log.Debugf("dynamodb: buscando item no dynamodb")
+
+	// Inicia a contagem do tempo de busca dentro do provedor de credenciais
+	start := time.Now()
+	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
+	// fingerprint possui
+	result, err := s.svc.GetItem(
+		&dynamodb.GetItemInput{
+			TableName: aws.String(s.tableName),
+			Key: map[string]*dynamodb.AttributeValue{
+				"fingerprint": {
+					S: aws.String(pc.Fingerprint),
+				},
+			},
+		},
+	)
+
+	// Faz o calculo de quantos milissegundos durou a busca
+	elapsed := time.Now().Sub(start).Milliseconds()
+
+	// publica no prometheus
+	summaryBuscaItem.Observe(float64(elapsed))
+	histogramBuscaItem.Observe(float64(elapsed))
+	tempoBuscaCredenciais.Set(float64(elapsed))
+
+	// Verifica se a busca retornou erros
+	if err != nil {
+		log.Infof("dynamodb: falha buscar dados no dynamodb: %v", err)
+		totalCredenciaisNegadas.Inc()
+		return claims, okClaims
+	}
+
+	// Instancia uma estrutura para o armazenamento das credenciais
+	credential := DynamoCredential{}
+
+	log.Debugf("dynamodb: mapeando o item encontrado na estrutura de memoria local")
+	// Mapeia o item recuperado do dynamodb para
+	err = dynamodbattribute.UnmarshalMap(result.Item, &credential)
+
+	log.Debugf("dynamodb: verificando existencia de erros no mapeamento")
+	if err != nil {
+		log.Infof("dynamodb: falha ao mapear o dado recuperado no dynamoDB na aplicacao, %v", err)
+		totalCredenciaisNegadas.Inc()
+		return claims, okClaims
+	}
+
+	log.Debugf("dynamodb: verificando se fingerprint eh vazio")
+
+	if credential.Fingerprint == "" {
+		log.Infof("dynamodb: fingerprint recuperado eh vazio. Nao encontrou-se a credencial no provedor remoto dynamodb")
+		totalCredenciaisNegadas.Inc()
+		return claims, okClaims
+	}
+
+	log.Debugf("dynamodb: [%d] credenciais encontradas para fingerprint %s", len(credential.Credentials), pc.Fingerprint)
 
 	log.Debugf("dynamodb: checando permissao de escopos")
 	for idx := range credential.Credentials {
@@ -148,10 +182,16 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 		if credential.Credentials[idx].Scope == escopoRequisicao {
 			log.Debugf("dynamodb: credential %s", credential.Credentials[idx])
 			okClaims = true
-			totalCredenciaisSucesso.Inc()
 			log.Debugf("dynamodb: escopo encontrado")
 			claims = credential.Credentials[idx]
 		}
+	}
+
+	// Incrementa as metricas do prometheus de acordo com o resultado obtido
+	if okClaims {
+		totalCredenciaisConcedidas.Inc()
+	} else {
+		totalCredenciaisNegadas.Inc()
 	}
 
 	log.Debugf("dynamodb: CredentialEntry %s", credential)

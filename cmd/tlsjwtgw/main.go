@@ -38,22 +38,18 @@ func main() {
 
 	// inicia o servico do http prometheus na porta addr
 	http.Handle("/metrics", promhttp.Handler())
-	// Verificar se nao esta fazendo lock na invocacao
 	go http.ListenAndServe(*addr, nil)
 
 	// Preenche a a estrutura opens com as configuracoes padroes de conexao com
 	// o provedor de credenciais, jwt, issuers, etc...
 	options, err = c.BuildOptions()
-	//fmt.Print(options)
+
 	if err != nil {
 		log.Fatalf("main: Error when reading config: %v", err)
 	}
 
-	// INFO Isso tem que se a primeira coisa a ser definida no projeto, voce
-	// espera passar toda a construcao do options para habilitar o level log.
 	// Define-se o tipo de log que sera utilizado na aplicacao a partir da
 	// configuracao
-
 	switch options.Loglevel {
 	case "info":
 		log.SetLevel(log.InfoLevel)
@@ -91,7 +87,6 @@ func main() {
 		} else {
 			log.Fatal("main: Nao foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"], ": ", err)
 		}
-		// TODO
 	} else {
 		log.Info("main: iniciando banco syncrono")
 		ticker := time.NewTicker(time.Second)

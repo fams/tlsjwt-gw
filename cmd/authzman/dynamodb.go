@@ -50,10 +50,6 @@ func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
 	return nil, false
 }
 
-// Determina um timeout de 5 segundos para que a busca no provedor seja
-// realizada
-const duration int = 5
-
 // Validate -
 func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 

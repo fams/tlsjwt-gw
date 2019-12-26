@@ -181,6 +181,7 @@ func BuildOptions() (Options, error) {
 
 		param["tableName"] = v1.GetString("credentials.tableName")
 		param["region"] = v1.GetString("credentials.region")
+		param["timeout"] = v1.GetString("credentials.timeout")
 		opt.PermissionDB.Config = DBConf{param, "dynamodb"}
 
 		log.Debugf("config: using dynamodb with table %s", v1.GetString("credentials.tableName"))

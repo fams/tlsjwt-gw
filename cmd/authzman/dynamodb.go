@@ -1,7 +1,9 @@
 package authzman
 
 import (
+	"context"
 	"extauth/cmd/config"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -23,6 +25,7 @@ type DynamoCredential struct {
 type DynamoDB struct {
 	region    string
 	tableName string
+	timeout   int
 	svc       *dynamodb.DynamoDB
 }
 
@@ -32,8 +35,11 @@ func NewDynamoStorage(config config.DBConf) *DynamoDB {
 	db := new(DynamoDB)
 	db.tableName = config.Options["tableName"]
 	db.region = config.Options["region"]
+	db.timeout, _ = strconv.Atoi(config.Options["timeout"])
 
-	log.Debugf("dynamodb: informacoes de tabela '%s' e regiao '%s' salvos com sucesso", db.tableName, db.region)
+	log.Debugf("dynamodb: definido nome da tabela como: ", db.tableName)
+	log.Debugf("dynamodb: definido regiao como: ", db.region)
+	log.Debugf("dynamodb: definido tempo de timeout de busca: ", db.timeout)
 
 	return db
 }
@@ -43,6 +49,10 @@ func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
 
 	return nil, false
 }
+
+// Determina um timeout de 5 segundos para que a busca no provedor seja
+// realizada
+const duration int = 5
 
 // Validate -
 func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
@@ -60,7 +70,18 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	// extauth_1            | time="2019-12-26T12:40:25Z" level=debug msg="dynamodb: buscando item no dynamodb"
 	// extauth_1            | time="2019-12-26T12:41:19Z" level=info msg="dynamodb: falha buscar dados no dynamodb: ExpiredTokenException: The security token included in the request is expired\n\tstatus code: 400, request id: 99KQNSQRRRPRVUE3JIKSIMKUG3VV4KQNSO5AEMVJF66Q9ASUAAJG"
 
-	result, err := s.svc.GetItem(
+	// Create a context with a timeout that will abort the GetItem if it takes
+	// more than the passed in timeout.
+	ctxItem, cancelFn := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
+
+	// Certifica que o contexto sera finalizao no fim da execucao da aplicacao
+	// caso essa situacao ocorra
+	defer cancelFn()
+
+	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
+	// fingerprint possui
+	result, err := s.svc.GetItemWithContext(
+		ctxItem,
 		&dynamodb.GetItemInput{
 			TableName: aws.String(s.tableName),
 			Key: map[string]*dynamodb.AttributeValue{

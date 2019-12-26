@@ -56,6 +56,10 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 
 	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
 	// fingerprint possui
+	// TODO verificar se tem como mudar o tempo de timeout do prometheus
+	// extauth_1            | time="2019-12-26T12:40:25Z" level=debug msg="dynamodb: buscando item no dynamodb"
+	// extauth_1            | time="2019-12-26T12:41:19Z" level=info msg="dynamodb: falha buscar dados no dynamodb: ExpiredTokenException: The security token included in the request is expired\n\tstatus code: 400, request id: 99KQNSQRRRPRVUE3JIKSIMKUG3VV4KQNSO5AEMVJF66Q9ASUAAJG"
+
 	result, err := s.svc.GetItem(
 		&dynamodb.GetItemInput{
 			TableName: aws.String(s.tableName),

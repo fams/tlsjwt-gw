@@ -7,9 +7,18 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 
 	"time"
+)
+
+var (
+	totalCredenciaisSucesso = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_credenciais_sucesso",
+		Help: "The total number of credentials gave successfuly",
+	})
 )
 
 // DynamoCredential -
@@ -124,6 +133,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 		if credential.Credentials[idx].Scope == escopoRequisicao {
 			log.Debugf("dynamodb: credential %s", credential.Credentials[idx])
 			okClaims = true
+			totalCredenciaisSucesso.Inc()
 			log.Debugf("dynamodb: escopo encontrado")
 			claims = credential.Credentials[idx]
 		}

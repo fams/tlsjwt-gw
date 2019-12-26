@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,6 +21,10 @@ import (
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+
+	// Prometheus packages
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // fatal - kill program
@@ -38,6 +43,9 @@ func main() {
 		err     error
 		options c.Options
 	)
+
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(":2112", nil)
 
 	// Preenche a a estrutura opens com as configuracoes padroes de conexao com
 	// o provedor de credenciais, jwt, issuers, etc...

@@ -8,7 +8,6 @@ import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -21,14 +20,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
-
-// fatal - kill program
-// INFO o comentario que estava no
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 func main() {
 	//v1, err := defaultConf()
@@ -44,8 +35,7 @@ func main() {
 	options, err = c.BuildOptions()
 	//fmt.Print(options)
 	if err != nil {
-		log.Infof("Error when reading config: %v", err)
-		panic(fmt.Errorf("Error when reading config: %v\n", err))
+		log.Fatalf("main: Error when reading config: %v", err)
 	}
 
 	// INFO Isso tem que se a primeira coisa a ser definida no projeto, voce
@@ -70,7 +60,7 @@ func main() {
 
 	// Verifica se nao ocorreu algum erro na criacao da estrutura
 	if PermissionManager == nil {
-		panic(fmt.Errorf("Error when creating a new Permission DB\n"))
+		log.Fatalf("main: Error when creating a new Permission DB\n")
 	}
 
 	// INFO nao sei o que essa funcao Async faz
@@ -88,12 +78,11 @@ func main() {
 			// Inicia-se uma GoRoutine (que eh uma thread)
 			go PermissionManager.Init(tick)
 		} else {
-			log.Debugf("Não foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"])
-			fatal(err)
+			log.Fatal("main: Nao foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"], ": ", err)
 		}
 		// TODO
 	} else {
-		log.Info("iniciando banco syncrono")
+		log.Info("main: iniciando banco syncrono")
 		ticker := time.NewTicker(time.Second)
 		PermissionManager.Init(ticker)
 	}
@@ -108,14 +97,16 @@ func main() {
 	// Le a chave privada do algoritmo RSA
 	signKeyBytes, err := ioutil.ReadFile(privKeyPath)
 
-	// Chama a funcao Fatal na qual verifica se ha algum problema na leitura
-	fatal(err)
+	// verifica se ha algum problema na leitura
+	if err != nil {
+		log.Fatalf("main: Error when reading private key: %v", err)
+	}
 
 	// Issuer usado pelo GW
 	localIssuer := options.JwtConf.LocalIssuer
-	log.Debugf("local Issuer: %s", localIssuer)
-	log.Debugf("authzHeader: %s", options.AuthHeader)
-	log.Debugf("claimString: %s", options.ClaimString)
+	log.Debugf("main: local Issuer: %s", localIssuer)
+	log.Debugf("main: authzHeader: %s", options.AuthHeader)
+	log.Debugf("main: claimString: %s", options.ClaimString)
 
 	// Iniciando o gerenciador JWT
 	// Instancia um JWTHandler invocando a funcao New do pacote jwthandler
@@ -126,7 +117,7 @@ func main() {
 		// Invoca a funcao que busca os issuers e aplica no JWT
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {
-			log.Fatalf("Erro carregando JWTconf: %s iss: %s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
+			log.Fatalf("main: Erro carregando JWTconf: %s iss: %s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		}
 	}
 
@@ -143,9 +134,9 @@ func main() {
 	lis, err := net.Listen("tcp", ":4000")
 	//fatal(err)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("main: failed to listen: %v", err)
 	}
-	log.Infof("listening on %s ", lis.Addr()) //,authServer.jwtinstance.GetConf())
+	log.Infof("main: listening on %s ", lis.Addr()) //,authServer.jwtinstance.GetConf())
 
 	// Inicia o Servidor GRPC
 	grpcServer := grpc.NewServer()
@@ -155,7 +146,7 @@ func main() {
 
 	// Verifica se o servidor esta escutando
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		log.Fatalf("main: Failed to start server: %v", err)
 	}
 
 	// Graceful end

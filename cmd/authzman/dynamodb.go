@@ -37,12 +37,12 @@ type DynamoDB struct {
 
 // NewDynamoStorage -
 func NewDynamoStorage(config config.DBConf) *DynamoDB {
-	log.Debugf("criando objeto dynamodb com tablename: %s e region: %s", config.Options["tableName"], config.Options["region"])
+	log.Debugf("dynamodb: criando objeto dynamodb com tablename: %s e region: %s", config.Options["tableName"], config.Options["region"])
 	db := new(DynamoDB)
 	db.tableName = config.Options["tableName"]
 	db.region = config.Options["region"]
 
-	log.Debugf("RLOG: DADOS GRAVAODOS %s e %s", db.tableName, db.region)
+	log.Debugf("dynamodb: informacoes de tabela '%s' e regiao '%s' salvos com sucesso", db.tableName, db.region)
 
 	return db
 }

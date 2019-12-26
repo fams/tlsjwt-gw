@@ -13,12 +13,6 @@ import (
 // https://tools.ietf.org/html/rfc7519#section-4.1
 // See examples for how to use this with your own claim types
 
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 // JwtHandler - Estrutura que armazena as inforações do JWT Gerado
 type JwtHandler struct {
 	signKey     *rsa.PrivateKey
@@ -46,7 +40,9 @@ func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration, kid 
 	j.Jwks = make(map[string]*jwk.Set)
 
 	// Verifica a existencia de erro
-	fatal(err)
+	if err != nil {
+		log.Fatalf("signer: Error when reading config: %v", err)
+	}
 
 	// Retorna o novo JWT
 	return j

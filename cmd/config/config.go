@@ -152,7 +152,7 @@ func BuildOptions() (Options, error) {
 	// Retorna uma estrutura Viper com os dados de configuracoes default
 	v1, err := DefaultConf()
 	if err != nil {
-		panic(fmt.Errorf("Error when reading config: %v\n", err))
+		log.Fatalf("config: Error when reading config: %v\n", err)
 	}
 
 	// Cria-se uma estrutura do tipo Options e inicia-se o seu preenchimento de
@@ -183,14 +183,13 @@ func BuildOptions() (Options, error) {
 		param["region"] = v1.GetString("credentials.region")
 		opt.PermissionDB.Config = DBConf{param, "dynamodb"}
 
-		log.Debug("using dynamodb with table %s", v1.GetString("credentials.tableName"))
-		log.Debugf("RLOG: using dynamodb with table %s", v1.GetString("credentials.tableName"))
+		log.Debugf("config: using dynamodb with table %s", v1.GetString("credentials.tableName"))
 
 	case "csv":
 		//path := v1.GetString("credentials.path")
 		//var param map[string]interface{}
 		if path := v1.GetString("credentials.path"); len(path) < 2 {
-			log.Fatalf("Erro analisando config do provedor de credenciais %v", err)
+			log.Fatalf("config: Erro analisando config do provedor de credenciais %v", err)
 		} else {
 			param := make(map[string]string)
 			param["CsvPath"] = path
@@ -213,9 +212,9 @@ func BuildOptions() (Options, error) {
 		param["uri"] = v1.GetString("credentials.uri")
 		param["database"] = v1.GetString("credentials.database")
 		opt.PermissionDB.Config = DBConf{param, "mongo"}
-		log.Debug("using mongo with %s, %s", v1.GetString("credentials.uri"), v1.GetString("credentials.database"))
+		log.Debug("config: using mongo with %s, %s", v1.GetString("credentials.uri"), v1.GetString("credentials.database"))
 	default:
-		log.Fatal("Nenhum provedor de credenciais configurado")
+		log.Fatal("config: Nenhum provedor de credenciais configurado")
 	}
 
 	//Configuracoes de AsyncDb
@@ -228,7 +227,7 @@ func BuildOptions() (Options, error) {
 	// Verifica se as configuracoes lidas sao validas para o funcionamento desta
 	// aplicacao
 	if opt.PermissionDB.CacheInterval > opt.PermissionDB.CacheClean || opt.PermissionDB.CacheInterval < 30 {
-		log.Fatal("Tempo de vida do cache minimo 30s, tempo de limpeza deve ser superior ao tempo de vida")
+		log.Fatal("config: Tempo de vida do cache minimo 30s, tempo de limpeza deve ser superior ao tempo de vida")
 	}
 
 	// JWT Config
@@ -250,7 +249,7 @@ func BuildOptions() (Options, error) {
 		path := v1.GetString(fmt.Sprintf("ignorePaths.%s", e))
 		// Adiciona ao final do vetor IgnorePaths
 		opt.IgnorePaths = append(opt.IgnorePaths, path)
-		log.Debugf("ignore path: %s", path)
+		log.Debugf("config: ignore path: %s", path)
 	}
 	//var issAllow  []IssuerConf
 
@@ -278,9 +277,9 @@ func BuildOptions() (Options, error) {
 
 	// Define informacoes de Auth e Claim
 	opt.AuthHeader = v1.GetString("jwt.authHeader")
-	log.Debugf("authHeader: %s", opt.AuthHeader)
+	log.Debugf("config: authHeader: %s", opt.AuthHeader)
 	opt.ClaimString = v1.GetString("jwt.claimString")
-	log.Debugf("claimString: %s", opt.ClaimString)
+	log.Debugf("config: claimString: %s", opt.ClaimString)
 	//opt.IgnoreList
 
 	//fatal(err)

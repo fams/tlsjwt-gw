@@ -62,10 +62,6 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 
 	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
 	// fingerprint possui
-	// TODO verificar se tem como mudar o tempo de timeout do prometheus
-	// extauth_1            | time="2019-12-26T12:40:25Z" level=debug msg="dynamodb: buscando item no dynamodb"
-	// extauth_1            | time="2019-12-26T12:41:19Z" level=info msg="dynamodb: falha buscar dados no dynamodb: ExpiredTokenException: The security token included in the request is expired\n\tstatus code: 400, request id: 99KQNSQRRRPRVUE3JIKSIMKUG3VV4KQNSO5AEMVJF66Q9ASUAAJG"
-
 	// Create a context with a timeout that will abort the GetItem if it takes
 	// more than the passed in timeout.
 	ctxItem, cancelFn := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
@@ -135,7 +131,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 		escopoRequisicao = pc.Scope
 		// Igual a '.', entao retorna falso
 	} else {
-		log.Debugf("dynamodb: escopo recebido igual a '.', retornando falso")
+		log.Infof("dynamodb: escopo recebido igual a '.', retornando falso")
 		return claims, okClaims
 	}
 

@@ -64,7 +64,7 @@ func (j *JwtHandler) GetSignedToken(customClaims map[string][]string, clientId s
 	}
 	for claimName, claimList := range customClaims {
 		if len(customClaims[claimName]) > 1 {
-			log.Debugf("Gerando claims para %d %s", len(claimList), claimName)
+			log.Debugf("signer: Gerando claims para %d %s", len(claimList), claimName)
 			claims[claimName] = claimList
 		} else {
 			claims[claimName] = claimList[0]
@@ -83,5 +83,5 @@ func (j *JwtHandler) GetSignedToken(customClaims map[string][]string, clientId s
 
 // GetConf -
 func (j *JwtHandler) GetConf() string {
-	return fmt.Sprintf("Local Issuer: %s\n privKey: %v", j.localIssuer, j.signKey)
+	return fmt.Sprintf("signer: Local Issuer: %s\n privKey: %v", j.localIssuer, j.signKey)
 }

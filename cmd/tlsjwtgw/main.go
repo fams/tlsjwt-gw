@@ -8,8 +8,10 @@ import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
+	"flag"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,9 +19,13 @@ import (
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	// Prometheus packages
 )
+
+var addr = flag.String("listen-address", ":2112", "The address to listen on for HTTP requests.")
 
 func main() {
 	//v1, err := defaultConf()
@@ -30,19 +36,20 @@ func main() {
 		options c.Options
 	)
 
+	// inicia o servico do http prometheus na porta addr
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(*addr, nil)
+
 	// Preenche a a estrutura opens com as configuracoes padroes de conexao com
 	// o provedor de credenciais, jwt, issuers, etc...
 	options, err = c.BuildOptions()
-	//fmt.Print(options)
+
 	if err != nil {
 		log.Fatalf("main: Error when reading config: %v", err)
 	}
 
-	// INFO Isso tem que se a primeira coisa a ser definida no projeto, voce
-	// espera passar toda a construcao do options para habilitar o level log.
 	// Define-se o tipo de log que sera utilizado na aplicacao a partir da
 	// configuracao
-
 	switch options.Loglevel {
 	case "info":
 		log.SetLevel(log.InfoLevel)
@@ -80,7 +87,6 @@ func main() {
 		} else {
 			log.Fatal("main: Nao foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"], ": ", err)
 		}
-		// TODO
 	} else {
 		log.Info("main: iniciando banco syncrono")
 		ticker := time.NewTicker(time.Second)

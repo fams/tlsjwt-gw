@@ -108,6 +108,8 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	// caso essa situacao ocorra
 	defer cancelFn()
 
+	start := time.Now()
+
 	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
 	// fingerprint possui
 	result, err := s.svc.GetItemWithContext(

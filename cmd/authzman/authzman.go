@@ -59,7 +59,9 @@ func NewPermDb(config config.DBConf) AuthzDB {
 	case "mongo":
 		return NewMongoStorage(config)
 
-		// INFO eh melhor o default aqui do quer um return fora do switch case
+	case "dynamodb":
+		return NewDynamoStorage(config)
+
 	default:
 		return nil
 	}

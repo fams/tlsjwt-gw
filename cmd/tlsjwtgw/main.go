@@ -2,15 +2,16 @@
 //
 package main
 
-// Fams, verificar os // INFO que eu coloquei nos codigos
+// TODO FAMS, verificar os // INFO que eu coloquei nos codigos
 
 import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
-	"fmt"
+	"flag"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,17 +19,13 @@ import (
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	// Prometheus packages
 )
 
-// fatal - kill program
-// INFO o comentario que estava no
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
+var addr = flag.String("listen-address", ":2112", "The address to listen on for HTTP requests.")
 
 func main() {
 	//v1, err := defaultConf()
@@ -39,12 +36,16 @@ func main() {
 		options c.Options
 	)
 
+	// inicia o servico do http prometheus na porta addr
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(*addr, nil)
+
 	// Preenche a a estrutura opens com as configuracoes padroes de conexao com
 	// o provedor de credenciais, jwt, issuers, etc...
 	options, err = c.BuildOptions()
-	//fmt.Print(options)
+
 	if err != nil {
-		panic(fmt.Errorf("Error when reading config: %v\n", err))
+		log.Fatalf("main: Error when reading config: %v", err)
 	}
 
 	// Define-se o tipo de log que sera utilizado na aplicacao a partir da
@@ -64,6 +65,11 @@ func main() {
 	//var PermissionManager authzman.AuthzDB
 	PermissionManager := authzman.NewPermDb(options.PermissionDB.Config)
 
+	// Verifica se nao ocorreu algum erro na criacao da estrutura
+	if PermissionManager == nil {
+		log.Fatalf("main: Error when creating a new Permission DB\n")
+	}
+
 	// INFO nao sei o que essa funcao Async faz
 	var ticker *time.Ticker
 	if PermissionManager.Async() {
@@ -80,15 +86,14 @@ func main() {
 			// Inicia-se uma GoRoutine (que eh uma thread)
 			go PermissionManager.Init(ticker)
 		} else {
-			log.Debugf("Não foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"])
-			fatal(err)
+			log.Fatal("main: Nao foi possivel converter %s para time.duration ", options.PermissionDB.Config.Options["interval"], ": ", err)
 		}
-		// TODO
 	} else {
-		log.Info("iniciando banco syncrono")
+		log.Info("main: iniciando banco syncrono")
 		ticker = time.NewTicker(time.Second)
 		PermissionManager.Init(ticker)
 	}
+
 	//
 	// Configurando o JWT Handler
 	//
@@ -99,14 +104,16 @@ func main() {
 	// Le a chave privada do algoritmo RSA
 	signKeyBytes, err := ioutil.ReadFile(privKeyPath)
 
-	// Chama a funcao Fatal na qual verifica se ha algum problema na leitura
-	fatal(err)
+	// verifica se ha algum problema na leitura
+	if err != nil {
+		log.Fatalf("main: Error when reading private key: %v", err)
+	}
 
 	// Issuer usado pelo GW
 	localIssuer := options.JwtConf.LocalIssuer
-	log.Debugf("local Issuer: %s", localIssuer)
-	log.Debugf("authzHeader: %s", options.AuthHeader)
-	log.Debugf("claimString: %s", options.ClaimString)
+	log.Debugf("main: local Issuer: %s", localIssuer)
+	log.Debugf("main: authzHeader: %s", options.AuthHeader)
+	log.Debugf("main: claimString: %s", options.ClaimString)
 
 	// Iniciando o gerenciador JWT
 	// Instancia um JWTHandler invocando a funcao New do pacote jwthandler
@@ -117,7 +124,7 @@ func main() {
 		// Invoca a funcao que busca os issuers e aplica no JWT
 		err := myJwtHandler.AddJWK(options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		if err != nil {
-			log.Fatalf("Erro carregando JWTconf: %s iss: %s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
+			log.Fatalf("main: Erro carregando JWTconf: %s iss: %s src: %s", err, options.JwtConf.Issuers[i].Issuer, options.JwtConf.Issuers[i].Url)
 		}
 	}
 
@@ -134,9 +141,9 @@ func main() {
 	lis, err := net.Listen("tcp", ":4000")
 	//fatal(err)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("main: failed to listen: %v", err)
 	}
-	log.Infof("listening on %s ", lis.Addr()) //,authServer.jwtinstance.GetConf())
+	log.Infof("main: listening on %s ", lis.Addr()) //,authServer.jwtinstance.GetConf())
 
 	// Inicia o Servidor GRPC
 	grpcServer := grpc.NewServer()
@@ -146,7 +153,7 @@ func main() {
 
 	// Verifica se o servidor esta escutando
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		log.Fatalf("main: Failed to start server: %v", err)
 	}
 
 	// Graceful end

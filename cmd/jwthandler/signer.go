@@ -13,12 +13,6 @@ import (
 // https://tools.ietf.org/html/rfc7519#section-4.1
 // See examples for how to use this with your own claim types
 
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 // JwtHandler - Estrutura que armazena as inforações do JWT Gerado
 type JwtHandler struct {
 	signKey     *rsa.PrivateKey
@@ -46,7 +40,9 @@ func New(signBytes []byte, localIssuer string, tokenLifetime time.Duration, kid 
 	j.Jwks = make(map[string]*jwk.Set)
 
 	// Verifica a existencia de erro
-	fatal(err)
+	if err != nil {
+		log.Fatalf("signer: Error when reading config: %v", err)
+	}
 
 	// Retorna o novo JWT
 	return j
@@ -68,7 +64,7 @@ func (j *JwtHandler) GetSignedToken(customClaims map[string][]string, clientId s
 	}
 	for claimName, claimList := range customClaims {
 		if len(customClaims[claimName]) > 1 {
-			log.Debugf("Gerando claims para %d %s", len(claimList), claimName)
+			log.Debugf("signer: Gerando claims para %d %s", len(claimList), claimName)
 			claims[claimName] = claimList
 		} else {
 			claims[claimName] = claimList[0]
@@ -87,5 +83,5 @@ func (j *JwtHandler) GetSignedToken(customClaims map[string][]string, clientId s
 
 // GetConf -
 func (j *JwtHandler) GetConf() string {
-	return fmt.Sprintf("Local Issuer: %s\n privKey: %v", j.localIssuer, j.signKey)
+	return fmt.Sprintf("signer: Local Issuer: %s\n privKey: %v", j.localIssuer, j.signKey)
 }

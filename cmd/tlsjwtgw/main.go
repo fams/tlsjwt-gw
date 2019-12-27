@@ -4,6 +4,12 @@ package main
 
 // TODO FAMS, verificar os // INFO que eu coloquei nos codigos
 
+// TODO PROMETHEUS LIST
+// cache rate - DONE
+// request por segundos - OK
+// latencia para a base 90 95 99
+// falhas
+
 import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"

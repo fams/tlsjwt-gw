@@ -7,13 +7,36 @@ import (
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
 	"fmt"
-
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 
 	//"crypto/x509"
 	"strings"
+)
+
+var (
+	totalPedidosAutorizacao = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_pedidos_autorizacao_total",
+		Help: "O numero total de pedidos de autenticacao tanto concedidos ou nao",
+	})
+
+	totalPedidosAutorizacaoConcedidos = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_pedidos_autorizacao_concedidos_total",
+		Help: "O numero total de pedidos de autenticacao concedidos",
+	})
+
+	totalPedidosAutorizacaoNegados = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_pedidos_autorizacao_negados_total",
+		Help: "O numero total de pedidos de autenticacao negados",
+	})
+
+	totalPedidosHitCache = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gtw_pedidos_autorizacao_concedidos_via_cache_total",
+		Help: "O numero total de pedidos de autenticacao somente pela busca em cache",
+	})
 )
 
 // AuthorizationServer - Estrutura de controle do servidor
@@ -51,6 +74,8 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 
 	if len(permissionClaim.Fingerprint) != 64 {
 		log.Debugf("o certificate fingerprint %s, esta em formato invalido", permissionClaim.Fingerprint)
+		totalPedidosAutorizacao.Inc()
+		totalPedidosAutorizacaoNegados.Inc()
 		return "", false
 	}
 
@@ -58,14 +83,17 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 	cachedToken, found := a.CacheGet(permissionClaim)
 	if found {
 		log.Debug("Cache encontrado ", cachedToken)
+		totalPedidosAutorizacaoConcedidos.Inc()
+		totalPedidosAutorizacao.Inc()
+		totalPedidosHitCache.Inc()
 		return cachedToken, true
 	} else {
-		log.Debugf("nao encontrei credentialCache para %s, scope: %s, buscando no storage", permissionClaim.Fingerprint, permissionClaim.Scope)
+		log.Debugf("nao encontrei credentialCache para %s, scope: %s, buscando no provedor", permissionClaim.Fingerprint, permissionClaim.Scope)
 
 		//Verifica se existem credenciais para esse claim
 		claims, okClaim := a.PermissionManager.Validate(permissionClaim)
-
 		// Se retornou ok, carrega as claims no jwt
+		totalPedidosAutorizacao.Inc()
 		if okClaim {
 			log.Debugf("encontrei fingerprint %s valida para scope: %s ", permissionClaim.Fingerprint, permissionClaim.Scope)
 
@@ -78,13 +106,16 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 
 			if err != nil {
 				log.Errorf("error sign Token: %v", err)
+				totalPedidosAutorizacaoNegados.Inc()
 				return "", false
 			}
 			//Armazena em cache e retorna
 			a.CacheSet(permissionClaim, tokenString)
+			totalPedidosAutorizacaoConcedidos.Inc()
 			return tokenString, true
 		}
 
+		totalPedidosAutorizacaoNegados.Inc()
 		return "", false
 	}
 }

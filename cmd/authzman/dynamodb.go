@@ -125,7 +125,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	)
 
 	// Faz o calculo de quantos milissegundos durou a busca
-	elapsed := time.Now().Sub(start).Milliseconds()
+	elapsed := time.Now().Sub(start)
 
 	// publica no prometheus
 	summaryBuscaItem.Observe(float64(elapsed))

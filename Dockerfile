@@ -1,4 +1,4 @@
-FROM golang:latest as builder
+FROM golang:1.12 as builder
 
 WORKDIR /build
 ENV GO111MODULE=on

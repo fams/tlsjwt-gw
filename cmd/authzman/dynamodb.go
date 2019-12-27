@@ -1,7 +1,9 @@
 package authzman
 
 import (
+	"context"
 	"extauth/cmd/config"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -64,6 +66,7 @@ type DynamoCredential struct {
 type DynamoDB struct {
 	region    string
 	tableName string
+	timeout   int
 	svc       *dynamodb.DynamoDB
 }
 
@@ -73,8 +76,11 @@ func NewDynamoStorage(config config.DBConf) *DynamoDB {
 	db := new(DynamoDB)
 	db.tableName = config.Options["tableName"]
 	db.region = config.Options["region"]
+	db.timeout, _ = strconv.Atoi(config.Options["timeout"])
 
-	log.Debugf("dynamodb: informacoes de tabela '%s' e regiao '%s' salvos com sucesso", db.tableName, db.region)
+	log.Debugf("dynamodb: definido nome da tabela como: ", db.tableName)
+	log.Debugf("dynamodb: definido regiao como: ", db.region)
+	log.Debugf("dynamodb: definido tempo de timeout de busca: ", db.timeout)
 
 	return db
 }
@@ -96,37 +102,24 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	okClaims := false
 	var claims Credential
 
-	// Dynamodb nao aceita valores vazios, entao trocou-se todos os campos
-	// vazios para '.'. Dessa forma ao procurar por:
-	// - por um scope vazio '', procura-se por '.'
-	// - por um scope 'escopo-a', procura-se por 'escopo-a'
-	// - por um scope '.', retorna unauth pois nao aceita valores indefinidos
-	// sendo '.' categorizado como indefinido.
-	var escopoRequisicao string
-
-	// Verifica se eh escopo vazio
-	log.Debugf("dynamodb: checando o escopo recebido")
-	if pc.Scope == "" {
-		log.Debugf("dynamodb: scopo esta vazio, trocando para '.'")
-		escopoRequisicao = "."
-		// Verifica se o escopo possui algum nome diferente de '.'
-	} else if pc.Scope != "." {
-		log.Debugf("dynamodb: escopo esta preenchido, mantendo-o dessa forma")
-		escopoRequisicao = pc.Scope
-		// Igual a '.', entao retorna falso
-	} else {
-		log.Debugf("dynamodb: escopo recebido igual a '.', retornando falso")
-		totalCredenciaisNegadas.Inc()
-		return claims, okClaims
-	}
-
 	log.Debugf("dynamodb: buscando item no dynamodb")
 
 	// Inicia a contagem do tempo de busca dentro do provedor de credenciais
 	start := time.Now()
 	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
 	// fingerprint possui
-	result, err := s.svc.GetItem(
+	// Create a context with a timeout that will abort the GetItem if it takes
+	// more than the passed in timeout.
+	ctxItem, cancelFn := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
+
+	// Certifica que o contexto sera finalizao no fim da execucao da aplicacao
+	// caso essa situacao ocorra
+	defer cancelFn()
+
+	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
+	// fingerprint possui
+	result, err := s.svc.GetItemWithContext(
+		ctxItem,
 		&dynamodb.GetItemInput{
 			TableName: aws.String(s.tableName),
 			Key: map[string]*dynamodb.AttributeValue{
@@ -138,7 +131,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	)
 
 	// Faz o calculo de quantos milissegundos durou a busca
-	elapsed := time.Now().Sub(start).Milliseconds()
+	elapsed := time.Now().Sub(start)
 
 	// publica no prometheus
 	summaryBuscaItem.Observe(float64(elapsed))
@@ -175,6 +168,29 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	}
 
 	log.Debugf("dynamodb: [%d] credenciais encontradas para fingerprint %s", len(credential.Credentials), pc.Fingerprint)
+
+	// Dynamodb nao aceita valores vazios, entao trocou-se todos os campos
+	// vazios para '.'. Dessa forma ao procurar por:
+	// - por um scope vazio '', procura-se por '.'
+	// - por um scope 'escopo-a', procura-se por 'escopo-a'
+	// - por um scope '.', retorna unauth pois nao aceita valores indefinidos
+	// sendo '.' categorizado como indefinido.
+	var escopoRequisicao string
+
+	// Verifica se eh escopo vazio
+	log.Debugf("dynamodb: checando o escopo recebido")
+	if pc.Scope == "" {
+		log.Debugf("dynamodb: scopo esta vazio, trocando para '.'")
+		escopoRequisicao = "."
+		// Verifica se o escopo possui algum nome diferente de '.'
+	} else if pc.Scope != "." {
+		log.Debugf("dynamodb: escopo esta preenchido, mantendo-o dessa forma")
+		escopoRequisicao = pc.Scope
+		// Igual a '.', entao retorna falso
+	} else {
+		log.Infof("dynamodb: escopo recebido igual a '.', retornando falso")
+		return claims, okClaims
+	}
 
 	log.Debugf("dynamodb: checando permissao de escopos")
 	for idx := range credential.Credentials {

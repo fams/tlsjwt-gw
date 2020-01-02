@@ -93,7 +93,6 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 		//Verifica se existem credenciais para esse claim
 		claims, okClaim := a.PermissionManager.Validate(permissionClaim)
 		// Se retornou ok, carrega as claims no jwt
-		totalPedidosAutorizacao.Inc()
 		if okClaim {
 			log.Debugf("encontrei fingerprint %s valida para scope: %s ", permissionClaim.Fingerprint, permissionClaim.Scope)
 
@@ -106,15 +105,18 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 
 			if err != nil {
 				log.Errorf("error sign Token: %v", err)
+				totalPedidosAutorizacao.Inc()
 				totalPedidosAutorizacaoNegados.Inc()
 				return "", false
 			}
 			//Armazena em cache e retorna
 			a.CacheSet(permissionClaim, tokenString)
+			totalPedidosAutorizacao.Inc()
 			totalPedidosAutorizacaoConcedidos.Inc()
 			return tokenString, true
 		}
 
+		totalPedidosAutorizacao.Inc()
 		totalPedidosAutorizacaoNegados.Inc()
 		return "", false
 	}

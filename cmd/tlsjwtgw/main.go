@@ -6,7 +6,7 @@ package main
 
 // TODO PROMETHEUS LIST
 // cache rate - DONE
-// request por segundos - OK
+// request por segundos - DONE
 // latencia para a base 90 95 99
 // falhas
 

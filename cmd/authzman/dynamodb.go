@@ -79,7 +79,7 @@ func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
 func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 
 	// INFO Nao esta imprimindo o pc.scope nos meus testes de dynamo
-	log.Debugf("dynamodb: validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
+	log.Debugf("dynamodb: validando fingerprint %s, scope: %s", pc.Fingerprint, pc.Scope)
 	okClaims := false
 	var claims Credential
 

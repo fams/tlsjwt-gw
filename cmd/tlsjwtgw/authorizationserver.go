@@ -88,7 +88,6 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 
 	//Busca em cache
 	cachedToken, found := a.CacheGet(permissionClaim)
-	found = false
 	if found {
 		log.Debug("authserver: Cache encontrado ", cachedToken)
 		totalPedidosAutorizacaoConcedidos.Inc()

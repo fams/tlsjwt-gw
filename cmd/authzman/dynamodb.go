@@ -17,11 +17,6 @@ import (
 )
 
 var (
-	// Contador de quantas credencias de sucesso foram realizadas
-	tempoBuscaCredenciais = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "gtw_credenciais_tempo_busca",
-		Help: "Tempo de busca da ultima credencial no provedor",
-	})
 
 	// Mostra a performance do tempo de busca no provedor de credenciais
 	summaryBuscaItem = promauto.NewSummary(prometheus.SummaryOpts{
@@ -29,13 +24,6 @@ var (
 		Help: "Summary de conexao para buscar um item no provedor de credenciais",
 		// Como serao exibidos os percentis
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.95: 0.005, 0.99: 0.001},
-	})
-
-	// Mostra a performance do tempo de busca no provedor de credenciais
-	histogramBuscaItem = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "gtw_histogram_busca_item",
-		Help:    "Tempo de conexao para buscar um item no provedor de credenciais",
-		Buckets: prometheus.LinearBuckets(25, 100, 20),
 	})
 )
 
@@ -116,8 +104,6 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 
 	// publica no prometheus
 	summaryBuscaItem.Observe(float64(elapsed))
-	histogramBuscaItem.Observe(float64(elapsed))
-	tempoBuscaCredenciais.Set(float64(elapsed))
 
 	// Verifica se a busca retornou erros
 	if err != nil {

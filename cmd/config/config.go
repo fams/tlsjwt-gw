@@ -47,7 +47,7 @@ type Options struct {
 	Loglevel      string
 	Port          int
 	Hostname      string
-	Oidc          OidcConf
+	Oidc          []OidcConf
 	IgnorePaths   []string
 	PermissionDB  *PermissionDBConf
 	JwtConf       *jwtConf
@@ -264,17 +264,21 @@ func BuildOptions() (Options, error) {
 	for k := range issuers {
 		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
 		url := v1.GetString(fmt.Sprintf("jwt.issuers.%s.url", k))
-		// INFO Voce esta definindo opt.JwtConf.Issuers aqui e logo que termina
-		// o For. Remova a linha depois do for pra evitar processamento
-		// desnecessario
 		opt.JwtConf.Issuers = append(ic, IssuerConf{iss, url})
 	}
 
-	// INFO instrucao desnecessaria
 	opt.JwtConf.Issuers = ic
 
-	// Define informacoes de OIDC
-	opt.Oidc = OidcConf{v1.GetString("oidc.hostname"), v1.GetString("oidc.path")}
+	var oi []OidcConf
+	oidcs := v1.GetStringMap("oidc")
+
+	for k := range oidcs {
+		oidcHostname := v1.GetString(fmt.Sprintf("oidc.%s.hostname", k))
+		oidcPath := v1.GetString(fmt.Sprintf("oidc.%s.path", k))
+
+		log.Debugf("config: adicionando ao oidc: %s:%s", oidcHostname, oidcPath)
+		opt.Oidc = append(oi, OidcConf{oidcHostname, oidcPath})
+	}
 
 	// Define informacoes de Auth e Claim
 	opt.AuthHeader = v1.GetString("jwt.authHeader")

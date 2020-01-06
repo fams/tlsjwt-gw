@@ -34,8 +34,6 @@ import (
 var addr = flag.String("listen-address", ":2112", "The address to listen on for HTTP requests.")
 
 func main() {
-	//v1, err := defaultConf()
-
 	// Instancia variaveis com informacoes de configuracao
 	var (
 		err     error

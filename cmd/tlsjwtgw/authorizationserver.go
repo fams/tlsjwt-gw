@@ -175,6 +175,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	//
 	// Verificando se o request e destinado ao endpoint de autenticacao interno
 
+	log.Debugf("authserver: verificando se o request eh destinado ao endpoint de autenticacao interno")
 	// Obtem o HOSTNAME e o PATH da request
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
@@ -182,13 +183,20 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	log.Debugf("authserver: OIDC, hostname: %s, path: %s", hostname, path)
 
 	// Caso Allowed sem modificacao
-	// FIXME: mudar para split de caminho por /  e verificar os elementos do array de path contra o array do
-	if hostname == a.Options.Oidc.Hostname && len(path) > len(a.Options.Oidc.Path) && a.Options.Oidc.Path == path[:len(a.Options.Oidc.Path)] {
-		log.Debugf("authserver: Auth request")
-		response, _ := BuildResponse(0, "", nil)
-		return response, nil
-	}
+	for i := 0; i < len(a.Options.Oidc); i++ {
+		log.Debugf("%d - Hostname: %s; Path: %s", i, a.Options.Oidc[i].Hostname, a.Options.Oidc[i].Path)
+		if hostname == a.Options.Oidc[i].Hostname &&
+			len(path) > len(a.Options.Oidc[i].Path) &&
+			a.Options.Oidc[i].Path == path[:len(a.Options.Oidc[i].Path)] {
 
+			log.Debugf("authserver: Auth request")
+			response, _ := BuildResponse(0, "", nil)
+			return response, nil
+		}
+	}
+	log.Debugf("authserver: autenticacao interna nao aplicada")
+
+	log.Debugf("authserver: verificando autorizacao JWT")
 	//
 	// Autorizacao por mTLS
 	//

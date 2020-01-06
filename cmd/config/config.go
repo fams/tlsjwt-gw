@@ -264,21 +264,23 @@ func BuildOptions() (Options, error) {
 	for k := range issuers {
 		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
 		url := v1.GetString(fmt.Sprintf("jwt.issuers.%s.url", k))
-		opt.JwtConf.Issuers = append(ic, IssuerConf{iss, url})
+		ic = append(ic, IssuerConf{iss, url})
 	}
 
 	opt.JwtConf.Issuers = ic
 
-	var oi []OidcConf
+	var oic []OidcConf
 	oidcs := v1.GetStringMap("oidc")
 
 	for k := range oidcs {
 		oidcHostname := v1.GetString(fmt.Sprintf("oidc.%s.hostname", k))
 		oidcPath := v1.GetString(fmt.Sprintf("oidc.%s.path", k))
 
-		log.Debugf("config: adicionando ao oidc: %s:%s", oidcHostname, oidcPath)
-		opt.Oidc = append(oi, OidcConf{oidcHostname, oidcPath})
+		log.Debugf("config: adicionando ao oidc o %s: %s%s", k, oidcHostname, oidcPath)
+		oic = append(oic, OidcConf{oidcHostname, oidcPath})
 	}
+
+	opt.Oidc = oic
 
 	// Define informacoes de Auth e Claim
 	opt.AuthHeader = v1.GetString("jwt.authHeader")

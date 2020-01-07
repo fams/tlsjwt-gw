@@ -38,7 +38,7 @@ func NewMongoStorage(config config.DBConf) *MongoDB {
 func (s *MongoDB) LoadPermissions() (PermissionMap, bool) {
 	return nil, false
 }
-func (s *MongoDB) Validate(pc PermissionClaim) (Credential, bool) {
+func (s *MongoDB) Validate(pc PermissionClaim, appID string) (Credential, bool) {
 
 	log.Debugf("mongodb: Validando fingerprint %s, path: %s", pc.Fingerprint, pc.Scope)
 	okClaims := false

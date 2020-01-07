@@ -7,6 +7,7 @@ import (
 	c "extauth/cmd/config"
 	"extauth/cmd/jwthandler"
 	"fmt"
+
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,25 +19,69 @@ import (
 )
 
 var (
-	totalPedidosAutorizacao = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_pedidos_autorizacao_total",
-		Help: "O numero total de pedidos de autenticacao tanto concedidos ou nao",
-	})
+	// Contador de quantas credencias de sucesso foram realizadas
+	metricsJwtTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_jwt_total",
+		Help: "O numero total de credenciais, tanto insucesso como sucesso",
+	},
+		[]string{"id"},
+	)
+	// Contador de quantas credencias foram concedidas
+	metricsJwtAceitoTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_jwt_aceito_total",
+		Help: "O numero total de jwt validados",
+	},
+		[]string{"id"},
+	)
+	// Contador de quantas credencias que nao foram cometidas
+	metricsJwtNegadoTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_jwt_negado_total",
+		Help: "O numero total de jwt rejeitados",
+	},
+		[]string{"id"},
+	)
+)
 
-	totalPedidosAutorizacaoConcedidos = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_pedidos_autorizacao_concedidos_total",
-		Help: "O numero total de pedidos de autenticacao concedidos",
-	})
+var (
+	// Contador para requisicoes mtls
+	metricsMtlsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_mtls_total",
+		Help: "O numero total de pedidos de autenticacao por mTLS",
+	},
+		[]string{"id"},
+	)
 
-	totalPedidosAutorizacaoNegados = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_pedidos_autorizacao_negados_total",
-		Help: "O numero total de pedidos de autenticacao negados",
-	})
+	metricsMtlsAceitoTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_mtls_aceito_total",
+		Help: "O numero total de pedidos de autenticacao por mTLS concedidos",
+	},
+		[]string{"id"},
+	)
 
-	totalPedidosHitCache = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_pedidos_autorizacao_concedidos_via_cache_total",
-		Help: "O numero total de pedidos de autenticacao somente pela busca em cache",
-	})
+	metricsMtlsNegadoTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_mtls_negado_total",
+		Help: "O numero total de pedidos de autenticacao por mTLS rejeitados",
+	},
+		[]string{"id"},
+	)
+
+	// Contador de cachehit
+	metricsMtlsCacheHit = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_mtls_cache_hit_total",
+		Help: "O numero total de cache HIT de requisicoes mTLS",
+	},
+		[]string{"id"},
+	)
+)
+
+var (
+	// Contador para total de todas as requisicoes
+	metricsRequisicaoTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_req_total",
+		Help: "O numero total de pedidos de autenticacao, tanto JWT quanto mTLS",
+	},
+		[]string{"id"},
+	)
 )
 
 // AuthorizationServer - Estrutura de controle do servidor
@@ -81,24 +126,20 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 
 	if len(permissionClaim.Fingerprint) != 64 {
 		log.Debugf("authserver: o certificate fingerprint %s, esta em formato invalido", permissionClaim.Fingerprint)
-		totalPedidosAutorizacao.Inc()
-		totalPedidosAutorizacaoNegados.Inc()
 		return "", false
 	}
 
 	//Busca em cache
 	cachedToken, found := a.CacheGet(permissionClaim)
 	if found {
-		log.Debug("authserver: Cache encontrado ", cachedToken)
-		totalPedidosAutorizacaoConcedidos.Inc()
-		totalPedidosAutorizacao.Inc()
-		totalPedidosHitCache.Inc()
+		log.Debug("authserver: ------- CACHE ENCONTRADO ", cachedToken)
+		metricsMtlsCacheHit.WithLabelValues(a.Options.AppID).Inc()
 
 	} else {
 		log.Debugf("authserver: nao encontrei credentialCache para %s, scope: %s, buscando no provedor", permissionClaim.Fingerprint, permissionClaim.Scope)
 
 		//Verifica se existem credenciais para esse claim
-		claims, okClaim := a.PermissionManager.Validate(permissionClaim)
+		claims, okClaim := a.PermissionManager.Validate(permissionClaim, a.Options.AppID)
 		// Se retornou ok, carrega as claims no jwt
 		if okClaim {
 			log.Debugf("authserver: encontrei fingerprint %s valida para scope: %s ", permissionClaim.Fingerprint, permissionClaim.Scope)
@@ -112,19 +153,12 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 
 			if err != nil {
 				log.Errorf("authserver: error sign Token: %v", err)
-				totalPedidosAutorizacao.Inc()
-				totalPedidosAutorizacaoNegados.Inc()
 				return "", false
 			}
 			//Armazena em cache e retorna
 			a.CacheSet(permissionClaim, tokenString)
-			totalPedidosAutorizacao.Inc()
-			totalPedidosAutorizacaoConcedidos.Inc()
 			return tokenString, true
 		}
-
-		totalPedidosAutorizacao.Inc()
-		totalPedidosAutorizacaoNegados.Inc()
 		return "", false
 	}
 
@@ -138,6 +172,8 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 // Se o acesso for para o servidor de autenticacao /auth configurado, o acesso e validado
 // em tods os outros casos a conexao e barrada
 func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest) (*auth.CheckResponse, error) {
+
+	metricsRequisicaoTotal.WithLabelValues(a.Options.AppID).Inc()
 
 	// Return fail for Options
 	// Caso UNAUTHENTICATED com Body customizado
@@ -158,13 +194,16 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	// Se receber um Bearer token Valido, verifica a autorizadao
 	if authzErr == nil && len(authz) > 0 {
 		ok, err := a.jwtinstance.ValidateJwt(authz)
+		metricsJwtTotal.WithLabelValues(a.Options.AppID).Inc()
 		log.Debugf("authserver: Received Authorization for: %s, result %v", authz, ok)
 		// Response ok par token valido e false para token invalido
 		if ok {
+			metricsJwtAceitoTotal.WithLabelValues(a.Options.AppID).Inc()
 			// Caso Allowed sem modificacao
 			response, _ := BuildResponse(0, "", nil)
 			return response, nil
 		} else {
+			metricsJwtNegadoTotal.WithLabelValues(a.Options.AppID).Inc()
 			log.Debugf("authserver: Received Error %s", err)
 			// Caso UNAUTHENTICATED com Body custom
 			response, _ := BuildResponse(1, "<em>Invalid JWT<em>", nil)
@@ -194,9 +233,9 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			return response, nil
 		}
 	}
-	log.Debugf("authserver: autenticacao interna nao aplicada")
+	log.Debugf("authserver: autenticacao OIDC nao aplicada")
 
-	log.Debugf("authserver: verificando autorizacao JWT")
+	log.Debugf("authserver: iniciando verificando JWT")
 	//
 	// Autorizacao por mTLS
 	//
@@ -229,12 +268,16 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		// Verificar o cache, se exitir, retorna o cache, se não existir valida o token, se estiver válido constroi o
 		// token, salva em cache e retorna o header, se não for válido, passa para o caso não autorizado
 		token, okToken := a.GetAuthorizationToken(permissionClaim, cn)
+		metricsMtlsTotal.WithLabelValues(a.Options.AppID).Inc()
 		if okToken {
 			tokenSha := fmt.Sprintf("Bearer %s", token)
 			log.Debugf("authserver: Build token: %s size:%d", tokenSha, len(tokenSha))
+			metricsMtlsAceitoTotal.WithLabelValues(a.Options.AppID).Inc()
 			// Caso UNAUTHENTICATED com Header Custom
 			response, _ := BuildResponse(0, "", map[string]string{authHeader: tokenSha})
 			return response, nil
+		} else {
+			metricsMtlsNegadoTotal.WithLabelValues(a.Options.AppID).Inc()
 		}
 	} else {
 		log.Debugf("authserver: Error certificate parts incomplete %v", certPartsErr)

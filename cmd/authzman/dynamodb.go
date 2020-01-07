@@ -17,14 +17,15 @@ import (
 )
 
 var (
-
 	// Mostra a performance do tempo de busca no provedor de credenciais
-	summaryBuscaItem = promauto.NewSummary(prometheus.SummaryOpts{
-		Name: "gtw_summary_busca_item",
+	metricsTempoBuscaItemProvedor = promauto.NewSummaryVec(prometheus.SummaryOpts{
+		Name: "gtw_summary_busca_provedor",
 		Help: "Summary de conexao para buscar um item no provedor de credenciais",
 		// Como serao exibidos os percentis
-		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.95: 0.005, 0.99: 0.001},
-	})
+		Objectives: map[float64]float64{0.5: 0.05, 0.95: 0.005, 0.99: 0.001},
+	},
+		[]string{"id"},
+	)
 )
 
 // DynamoCredential -
@@ -64,7 +65,7 @@ func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
 }
 
 // Validate -
-func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
+func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool) {
 
 	// INFO Nao esta imprimindo o pc.scope nos meus testes de dynamo
 	log.Debugf("dynamodb: validando fingerprint %s, scope: %s", pc.Fingerprint, pc.Scope)
@@ -103,7 +104,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim) (Credential, bool) {
 	elapsed := time.Now().Sub(start)
 
 	// publica no prometheus
-	summaryBuscaItem.Observe(float64(elapsed))
+	metricsTempoBuscaItemProvedor.WithLabelValues(appID).Observe(float64(elapsed))
 
 	// Verifica se a busca retornou erros
 	if err != nil {

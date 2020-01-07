@@ -156,7 +156,7 @@ func NewAsyncStorage(loader Loader) *Store {
 
 // Validate recebe uma tupla PermissionClaim(fingerprint, scope), verifica se existe permissoes para elas na base,
 // retorna as claims (permissions) para esse PermissionClaim
-func (tc *Store) Validate(pc PermissionClaim) (Credential, bool) {
+func (tc *Store) Validate(pc PermissionClaim, appID string) (Credential, bool) {
 	//Area Critica
 	log.Debugf("Validando fingerprint %s, path: %s,", pc.Fingerprint, pc.Scope)
 	//Area Critica detecta qual epoch está valido

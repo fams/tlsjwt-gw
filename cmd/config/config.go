@@ -3,6 +3,7 @@ package config
 import (
 	//"extauth/cmd/jwthandler"
 	"fmt"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -44,6 +45,7 @@ type jwtConf struct {
 // Options - Estrutura com todas as configuracoes necessarias para a execucao
 // da aplicacao.
 type Options struct {
+	AppID         string
 	Loglevel      string
 	Port          int
 	Hostname      string
@@ -158,6 +160,10 @@ func BuildOptions() (Options, error) {
 	// Cria-se uma estrutura do tipo Options e inicia-se o seu preenchimento de
 	// informacoes
 	var opt Options
+	// Converte um int64 para string e determina este valor como o id da
+	// aplicacao
+	opt.AppID = strconv.FormatInt(time.Now().UnixNano(), 10)
+
 	opt.Hostname = v1.GetString("hostname")
 	opt.Port = v1.GetInt("port")
 

@@ -4,12 +4,6 @@ package main
 
 // TODO FAMS, verificar os // INFO que eu coloquei nos codigos
 
-// TODO PROMETHEUS LIST
-// cache rate - DONE
-// request por segundos - DONE
-// latencia para a base 90 95 99
-// falhas
-
 import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"
@@ -25,11 +19,40 @@ import (
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	// Prometheus packages
 )
+
+var (
+	// Contador para total de todas as requisicoes
+	metricAmIAlive = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gtw_am_i_alive",
+		Help: "Incrementa um  atual afirmando sua presenca",
+	},
+		[]string{"id"},
+	)
+)
+
+func amIAlive(AppID string, delay time.Duration) chan bool {
+	stop := make(chan bool)
+
+	go func() {
+		for {
+			metricAmIAlive.WithLabelValues(AppID).Inc()
+			select {
+			case <-time.After(delay):
+			case <-stop:
+				return
+			}
+		}
+	}()
+
+	return stop
+}
 
 var addr = flag.String("listen-address", ":2112", "The address to listen on for HTTP requests.")
 
@@ -40,13 +63,27 @@ func main() {
 		options c.Options
 	)
 
-	// inicia o servico do http prometheus na porta addr
-	http.Handle("/metrics", promhttp.Handler())
-	go http.ListenAndServe(*addr, nil)
-
 	// Preenche a a estrutura opens com as configuracoes padroes de conexao com
 	// o provedor de credenciais, jwt, issuers, etc...
 	options, err = c.BuildOptions()
+
+	scheduleAlive := amIAlive(options.AppID, 1*time.Millisecond*1000)
+
+	// Inicializando algumas metricas
+	metricsJwtTotal.WithLabelValues(options.AppID).Add(0)
+	metricsJwtAceitoTotal.WithLabelValues(options.AppID).Add(0)
+	metricsJwtNegadoTotal.WithLabelValues(options.AppID).Add(0)
+
+	metricsMtlsTotal.WithLabelValues(options.AppID).Add(0)
+	metricsMtlsAceitoTotal.WithLabelValues(options.AppID).Add(0)
+	metricsMtlsNegadoTotal.WithLabelValues(options.AppID).Add(0)
+	metricsMtlsCacheHit.WithLabelValues(options.AppID).Add(0)
+
+	metricsRequisicaoTotal.WithLabelValues(options.AppID).Add(0)
+
+	// inicia o servico do http prometheus na porta addr
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(*addr, nil)
 
 	if err != nil {
 		log.Fatalf("main: Error when reading config: %v", err)
@@ -63,6 +100,8 @@ func main() {
 		log.SetLevel(log.InfoLevel)
 	}
 
+	log.Infof("ID: %s", options.AppID)
+
 	// Le as permissoes situadas no provedor de credenciais e salva numa
 	// estrutura/interface que possui o semaforo, o waitgroup e elas.
 	// Iniciando o reconciliador de credenciais com o loader
@@ -74,7 +113,6 @@ func main() {
 		log.Fatalf("main: Error when creating a new Permission DB\n")
 	}
 
-	// INFO nao sei o que essa funcao Async faz
 	if PermissionManager.Async() {
 		// captura o intervalo de tempo de requisicao
 		duration, err := time.ParseDuration(options.PermissionDB.Config.Options["interval"])
@@ -82,9 +120,6 @@ func main() {
 		if err == nil {
 			// Cria um novo ticker com duracao duration com Channel
 			// Ao utilizar um channel, ele enviara uma interrupcao ao final do
-			// ticker TODO
-			// INFO ele vai fazer uma interrupcao so ou vai fazer uma
-			// interrupcao a cada duration?
 			tick := time.NewTicker(duration)
 			// Inicia-se uma GoRoutine (que eh uma thread)
 			go PermissionManager.Init(tick)
@@ -142,7 +177,7 @@ func main() {
 
 	// create a TCP listener on port 4000
 	lis, err := net.Listen("tcp", ":4000")
-	//fatal(err)
+
 	if err != nil {
 		log.Fatalf("main: failed to listen: %v", err)
 	}
@@ -160,6 +195,8 @@ func main() {
 	}
 
 	// Graceful end
+	// Finaliza a funcao de metrica amIAlive
+	scheduleAlive <- true
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs

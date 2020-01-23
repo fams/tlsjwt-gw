@@ -113,6 +113,8 @@ func main() {
 		log.Fatalf("main: Error when creating a new Permission DB\n")
 	}
 
+	var ticker *time.Ticker
+
 	if PermissionManager.Async() {
 		// captura o intervalo de tempo de requisicao
 		duration, err := time.ParseDuration(options.PermissionDB.Config.Options["interval"])
@@ -120,7 +122,7 @@ func main() {
 		if err == nil {
 			// Cria um novo ticker com duracao duration com Channel
 			// Ao utilizar um channel, ele enviara uma interrupcao ao final do
-			ticker := time.NewTicker(duration)
+			ticker = time.NewTicker(duration)
 			// Inicia-se uma GoRoutine (que eh uma thread)
 			go PermissionManager.Init(ticker)
 		} else {
@@ -128,7 +130,7 @@ func main() {
 		}
 	} else {
 		log.Info("main: iniciando banco syncrono")
-		ticker := time.NewTicker(time.Second)
+		ticker = time.NewTicker(time.Second)
 		PermissionManager.Init(ticker)
 	}
 

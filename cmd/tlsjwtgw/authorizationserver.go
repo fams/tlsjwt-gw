@@ -136,7 +136,9 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 		metricsMtlsCacheHit.WithLabelValues(a.Options.AppID).Inc()
 
 	} else {
-		log.Debugf("authserver: nao encontrei credentialCache para %s, scope: %s, buscando no provedor", permissionClaim.Fingerprint, permissionClaim.Scope)
+		log.Debugf("authserver: nao encontrei cache para %s, scope: %s", permissionClaim.Fingerprint, permissionClaim.Scope)
+
+		log.Debugf("authserver: buscando no provedor")
 
 		//Verifica se existem credenciais para esse claim
 		claims, okClaim := a.PermissionManager.Validate(permissionClaim, a.Options.AppID)
@@ -159,6 +161,8 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 			a.CacheSet(permissionClaim, tokenString)
 			return tokenString, true
 		}
+
+		log.Debugf("authserver: nao encontrado no provedor")
 		return "", false
 	}
 
@@ -173,6 +177,7 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 // em tods os outros casos a conexao e barrada
 func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest) (*auth.CheckResponse, error) {
 
+	log.Debugf("authserver: INICIANDO CHECK")
 	metricsRequisicaoTotal.WithLabelValues(a.Options.AppID).Inc()
 
 	// Return fail for Options

@@ -161,6 +161,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool)
 	for idx := range credential.Credentials {
 		log.Debugf("dynamodb: testando fingerprint %s, Scope requisitado %s, scope encontrado %s", pc.Fingerprint, pc.Scope, credential.Credentials[idx].Scope)
 		if credential.Credentials[idx].Scope == escopoRequisicao {
+			// TODO escop encontrado, ja nao poderia sair nao?
 			log.Debugf("dynamodb: credential %s", credential.Credentials[idx])
 			okClaims = true
 			log.Debugf("dynamodb: escopo encontrado")

@@ -3,6 +3,7 @@ package config
 import (
 	//"extauth/cmd/jwthandler"
 	"fmt"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -44,10 +45,11 @@ type jwtConf struct {
 // Options - Estrutura com todas as configuracoes necessarias para a execucao
 // da aplicacao.
 type Options struct {
+	AppID         string
 	Loglevel      string
 	Port          int
 	Hostname      string
-	Oidc          OidcConf
+	Oidc          []OidcConf
 	IgnorePaths   []string
 	PermissionDB  *PermissionDBConf
 	JwtConf       *jwtConf
@@ -158,6 +160,10 @@ func BuildOptions() (Options, error) {
 	// Cria-se uma estrutura do tipo Options e inicia-se o seu preenchimento de
 	// informacoes
 	var opt Options
+	// Converte um int64 para string e determina este valor como o id da
+	// aplicacao
+	opt.AppID = strconv.FormatInt(time.Now().UnixNano(), 10)
+
 	opt.Hostname = v1.GetString("hostname")
 	opt.Port = v1.GetInt("port")
 
@@ -264,17 +270,23 @@ func BuildOptions() (Options, error) {
 	for k := range issuers {
 		iss := v1.GetString(fmt.Sprintf("jwt.issuers.%s.iss", k))
 		url := v1.GetString(fmt.Sprintf("jwt.issuers.%s.url", k))
-		// INFO Voce esta definindo opt.JwtConf.Issuers aqui e logo que termina
-		// o For. Remova a linha depois do for pra evitar processamento
-		// desnecessario
-		opt.JwtConf.Issuers = append(ic, IssuerConf{iss, url})
+		ic = append(ic, IssuerConf{iss, url})
 	}
 
-	// INFO instrucao desnecessaria
 	opt.JwtConf.Issuers = ic
 
-	// Define informacoes de OIDC
-	opt.Oidc = OidcConf{v1.GetString("oidc.hostname"), v1.GetString("oidc.path")}
+	var oic []OidcConf
+	oidcs := v1.GetStringMap("oidc")
+
+	for k := range oidcs {
+		oidcHostname := v1.GetString(fmt.Sprintf("oidc.%s.hostname", k))
+		oidcPath := v1.GetString(fmt.Sprintf("oidc.%s.path", k))
+
+		log.Debugf("config: adicionando ao oidc o %s: %s%s", k, oidcHostname, oidcPath)
+		oic = append(oic, OidcConf{oidcHostname, oidcPath})
+	}
+
+	opt.Oidc = oic
 
 	// Define informacoes de Auth e Claim
 	opt.AuthHeader = v1.GetString("jwt.authHeader")

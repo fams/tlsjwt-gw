@@ -29,11 +29,8 @@ type PermissionMap map[PermissionClaim]Credential
 
 // AuthzDB - Interface para conversacao com o provedor de credencial
 type AuthzDB interface {
-	// TODO
-	Validate(pc PermissionClaim) (Credential, bool)
-	// TODO
+	Validate(pc PermissionClaim, appID string) (Credential, bool)
 	Async() bool
-	// TODO
 	Init(tick *time.Ticker)
 }
 
@@ -45,7 +42,7 @@ func NewPermDb(config config.DBConf) AuthzDB {
 	// Captura as configuracoes de acesso ao provedor de credencial
 	options := config.Options
 
-	// De acordo com cada tipo de provedor, TODO
+	// De acordo com cada tipo de provedor
 	switch config.DBType {
 	case "s3":
 		permdb := S3DB{options["BucketName"], options["key"], options["region"]}

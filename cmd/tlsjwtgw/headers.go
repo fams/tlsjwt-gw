@@ -58,7 +58,7 @@ func FromClientCertHeader(ClientcertHeader string) (*ClientcertHeaderParts, erro
 	if len(HeadersParts) != 2 {
 		return CertParts, fmt.Errorf("certificate Information Header invalid")
 	}
-	log.Debugf("Certificate Header: %s, subjetct: %s", HeadersParts[0], HeadersParts[1])
+	log.Debugf("headers: Certificate Header: %s, subjetct: %s", HeadersParts[0], HeadersParts[1])
 
 	for i := 0; i < len(HeadersParts); i++ {
 		if strings.ToLower(HeadersParts[i][0:4]) == "hash" {

@@ -6,8 +6,6 @@ import (
 
 	"github.com/fams/jwt-go"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,25 +25,6 @@ type JSONWebKeys struct {
 	E   string   `json:"e"`
 	X5c []string `json:"x5c"`
 }
-
-var (
-
-	// Contador de quantas credencias de sucesso foram realizadas
-	totalJwt = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_jwt_total",
-		Help: "O numero total de credenciais, tanto insucesso como sucesso",
-	})
-	// Contador de quantas credencias foram concedidas
-	totalJwtAceitos = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_jwt_aceitos",
-		Help: "O numero total de jwt validados",
-	})
-	// Contador de quantas credencias que nao foram cometidas
-	totalJwtReitados = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gtw_jwt_rejeitados",
-		Help: "O numero total de jwt rejeitados",
-	})
-)
 
 // AddJWK - adiciona um JWKS para a lista de issues e chaves publicas permitidas
 func (j *JwtHandler) AddJWK(issuer string, url string) error {
@@ -67,7 +46,6 @@ func (j *JwtHandler) AddJWK(issuer string, url string) error {
 // ValidateJWt recebe um token jwe e valida-o contra as chaves publicas dos issuers cadastrados,
 // retornando true sem erros em caso de tokens permitidos e false com o erro se nao conseguir validar o token
 func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
-	totalJwt.Inc()
 	// Now parse the token
 	var parsedToken *jwt.Token
 	var err error
@@ -77,7 +55,6 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 		parsedToken, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(issuer, false)
 			if !checkIss {
-				totalJwtReitados.Inc()
 				return nil, errors.New("invalid issuer")
 			}
 			// Caso o hint de certificado kid seja nulo, assume que deve usar o primeiro da lista
@@ -86,27 +63,22 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 				key, err := keys.Materialize()
 				if err != nil {
 					msg := fmt.Errorf("failed to generate public key: %s", err)
-					totalJwtReitados.Inc()
 					return nil, msg
 				}
-				totalJwtReitados.Inc()
 				return key, err
 			}
 			// usa o kid para encontrar a chave a ser usada na auteticacao
 			keys := set.LookupKeyID(token.Header["kid"].(string))
 			if len(keys) == 0 {
 				msg := fmt.Errorf("failed to lookup key: %s", err)
-				totalJwtReitados.Inc()
 				return nil, msg
 			}
 
 			key, err := keys[0].Materialize()
 			if err != nil {
 				msg := fmt.Errorf("failed to generate public key: %s", err)
-				totalJwtReitados.Inc()
 				return nil, msg
 			}
-			totalJwtReitados.Inc()
 			return key, nil
 		})
 		if err == nil {
@@ -116,7 +88,6 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 
 	// Se nao for possivel fazer o parse do token retorna falso co o erro de parse
 	if err != nil {
-		totalJwtReitados.Inc()
 		return false, fmt.Errorf("error parsing token: %v", err)
 	}
 
@@ -125,15 +96,12 @@ func (j *JwtHandler) ValidateJwt(tokenString string) (bool, error) {
 		message := fmt.Sprintf("expected %s signing method but token specified %s",
 			"RS256",
 			parsedToken.Header["alg"])
-		totalJwtReitados.Inc()
 		return false, fmt.Errorf("error validating token algorithm: %s", message)
 	}
 
 	// Caso o token seja de um issuer confiavel retorna ok, do contrario false com erro
 	if !parsedToken.Valid {
-		totalJwtReitados.Inc()
 		return false, errors.New("token is invalid")
 	}
-	totalJwtAceitos.Inc()
 	return true, nil
 }

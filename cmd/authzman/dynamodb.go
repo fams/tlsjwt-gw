@@ -45,15 +45,15 @@ type DynamoDB struct {
 
 // NewDynamoStorage -
 func NewDynamoStorage(config config.DBConf) *DynamoDB {
-	log.Debugf("dynamodb: criando objeto dynamodb com tablename: %s e region: %s", config.Options["tableName"], config.Options["region"])
+	log.Debugf("dynamodb: criando objeto dynamodb com tablename: '%s' e region: '%s'", config.Options["tableName"], config.Options["region"])
 	db := new(DynamoDB)
 	db.tableName = config.Options["tableName"]
 	db.region = config.Options["region"]
 	db.timeout, _ = strconv.Atoi(config.Options["timeout"])
 
-	log.Debugf("dynamodb: definido nome da tabela como: %s", db.tableName)
-	log.Debugf("dynamodb: definido regiao como: %s", db.region)
-	log.Debugf("dynamodb: definido tempo de timeout de busca: %d", db.timeout)
+	log.Debugf("dynamodb: definido nome da tabela como: '%s'", db.tableName)
+	log.Debugf("dynamodb: definido regiao como: '%s'", db.region)
+	log.Debugf("dynamodb: definido tempo de timeout de busca: '%d'", db.timeout)
 
 	return db
 }
@@ -68,7 +68,7 @@ func (s *DynamoDB) LoadPermissions() (PermissionMap, bool) {
 func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool) {
 
 	// INFO Nao esta imprimindo o pc.scope nos meus testes de dynamo
-	log.Debugf("dynamodb: validando fingerprint %s, scope: %s", pc.Fingerprint, pc.Scope)
+	log.Debugf("dynamodb: validando fingerprint '%s', scope: '%s'", pc.Fingerprint, pc.Scope)
 	okClaims := false
 	var claims Credential
 	// more than the passed in timeout.
@@ -79,6 +79,8 @@ func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool)
 	defer cancelFn()
 
 	start := time.Now()
+
+	log.Debugf("dynamodb: procurando na tabela '%s' por fingerprint '%s', com '%d' de timeout", s.tableName, pc.Fingerprint, s.timeout)
 
 	// Faz uma busca no DynamoDB a procura todos os scopes que aquele
 	// fingerprint possui
@@ -125,7 +127,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool)
 		return claims, okClaims
 	}
 
-	log.Debugf("dynamodb: [%d] credenciais encontradas para fingerprint %s", len(credential.Credentials), pc.Fingerprint)
+	log.Debugf("dynamodb: [%d] credenciais encontradas para fingerprint '%s'", len(credential.Credentials), pc.Fingerprint)
 
 	// Dynamodb nao aceita valores vazios, entao trocou-se todos os campos
 	// vazios para '.'. Dessa forma ao procurar por:
@@ -152,17 +154,17 @@ func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool)
 
 	log.Debugf("dynamodb: checando permissao de escopos")
 	for idx := range credential.Credentials {
-		log.Debugf("dynamodb: testando fingerprint %s, Scope requisitado %s, scope encontrado %s", pc.Fingerprint, pc.Scope, credential.Credentials[idx].Scope)
+		log.Debugf("dynamodb: testando fingerprint '%s', Scope requisitado '%s', scope encontrado '%s'", pc.Fingerprint, pc.Scope, credential.Credentials[idx].Scope)
 		if credential.Credentials[idx].Scope == escopoRequisicao {
 			// TODO escop encontrado, ja nao poderia sair nao?
-			log.Debugf("dynamodb: credential %s", credential.Credentials[idx])
+			log.Debugf("dynamodb: credential '%s'", credential.Credentials[idx])
 			okClaims = true
 			log.Debugf("dynamodb: escopo encontrado")
 			claims = credential.Credentials[idx]
 		}
 	}
 
-	log.Debugf("dynamodb: CredentialEntry %s", credential)
+	log.Debugf("dynamodb: CredentialEntry '%s'", credential)
 	log.Debugf("dynamodb: fim do validate")
 	return claims, okClaims
 
@@ -179,7 +181,7 @@ func (s *DynamoDB) Init(ticker *time.Ticker) {
 	//Nova Sessão com a AWS
 	log.Debugf("dynamodb: Iniciando sessao com DynamoDB")
 
-	log.Debugf("dynamodb: conectando na tabela %s, do dynamodb, na regiao %s ", s.tableName, s.region)
+	log.Debugf("dynamodb: conectando na tabela '%s', do dynamodb, na regiao '%s' ", s.tableName, s.region)
 	ticker.Stop()
 
 	// INFO nao se testa erro nesta funcao, deveria

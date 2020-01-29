@@ -127,7 +127,7 @@ func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool)
 		return claims, okClaims
 	}
 
-	log.Debugf("dynamodb: [%d] credenciais encontradas para fingerprint '%s'", len(credential.Credentials), pc.Fingerprint)
+	log.Debugf("dynamodb: %d credenciais encontradas para fingerprint '%s'", len(credential.Credentials), pc.Fingerprint)
 
 	// Dynamodb nao aceita valores vazios, entao trocou-se todos os campos
 	// vazios para '.'. Dessa forma ao procurar por:
@@ -156,16 +156,18 @@ func (s *DynamoDB) Validate(pc PermissionClaim, appID string) (Credential, bool)
 	for idx := range credential.Credentials {
 		log.Debugf("dynamodb: testando fingerprint '%s', Scope requisitado '%s', scope encontrado '%s'", pc.Fingerprint, pc.Scope, credential.Credentials[idx].Scope)
 		if credential.Credentials[idx].Scope == escopoRequisicao {
-			// TODO escop encontrado, ja nao poderia sair nao?
 			log.Debugf("dynamodb: credential '%s'", credential.Credentials[idx])
 			okClaims = true
 			log.Debugf("dynamodb: escopo encontrado")
 			claims = credential.Credentials[idx]
+
+			// como encontrou um escopo, sai do for evitando processamento desnecessario
+			break
 		}
 	}
 
 	log.Debugf("dynamodb: CredentialEntry '%s'", credential)
-	log.Debugf("dynamodb: fim do validate")
+	log.Debugf("dynamodb: fim do validate, retornando sucesso")
 	return claims, okClaims
 
 }

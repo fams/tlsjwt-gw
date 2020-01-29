@@ -99,14 +99,14 @@ func (a *AuthorizationServer) CacheGet(principal authzman.PermissionClaim) (stri
 	hash.WriteString(":")
 	hash.WriteString(principal.Scope)
 
-	log.Debugf("authserver: checando hit de: %s", hash.String())
+	log.Debugf("authserver: checando hit de: '%s'", hash.String())
 
 	cachedToken, found := a.credentialCache.Get(hash.String())
 	if found {
-		log.Debug("authserver: Cache encontrado ", cachedToken.(string))
+		log.Debugf("authserver: encontrado em cache (cache hit) '%s;", cachedToken.(string))
 		return cachedToken.(string), true
 	} else {
-		log.Debugf("authserver: nenhum hit encontrado")
+		log.Debugf("authserver: nao encontrado em cache (cache miss)")
 		return "", false
 	}
 }
@@ -117,7 +117,7 @@ func (a *AuthorizationServer) CacheSet(principal authzman.PermissionClaim, token
 	hash.WriteString(principal.Fingerprint)
 	hash.WriteString(":")
 	hash.WriteString(principal.Scope)
-	log.Debugf("authserver: adicionando cache: %s, %s", hash.String(), tokenString)
+	log.Debugf("authserver: adicionando cache: '%s', '%s'", hash.String(), tokenString)
 	a.credentialCache.Set(hash.String(), tokenString, cache.DefaultExpiration)
 }
 
@@ -125,18 +125,18 @@ func (a *AuthorizationServer) CacheSet(principal authzman.PermissionClaim, token
 func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.PermissionClaim, clientId string) (string, bool) {
 
 	if len(permissionClaim.Fingerprint) != 64 {
-		log.Debugf("authserver: o certificate fingerprint %s, esta em formato invalido", permissionClaim.Fingerprint)
+		log.Debugf("authserver: o certificate fingerprint '%s', esta em formato invalido", permissionClaim.Fingerprint)
 		return "", false
 	}
 
 	//Busca em cache
 	cachedToken, found := a.CacheGet(permissionClaim)
 	if found {
-		log.Debug("authserver: ------- CACHE ENCONTRADO ", cachedToken)
+		log.Debugf("authserver: token encontrado '%s'", cachedToken)
 		metricsMtlsCacheHit.WithLabelValues(a.Options.AppID).Inc()
 
 	} else {
-		log.Debugf("authserver: nao encontrei cache para %s, scope: %s", permissionClaim.Fingerprint, permissionClaim.Scope)
+		log.Debugf("authserver: nao encontrei cache para '%s', scope: '%s'", permissionClaim.Fingerprint, permissionClaim.Scope)
 
 		log.Debugf("authserver: buscando no provedor")
 
@@ -144,7 +144,7 @@ func (a *AuthorizationServer) GetAuthorizationToken(permissionClaim authzman.Per
 		claims, okClaim := a.PermissionManager.Validate(permissionClaim, a.Options.AppID)
 		// Se retornou ok, carrega as claims no jwt
 		if okClaim {
-			log.Debugf("authserver: encontrei fingerprint %s valida para scope: %s ", permissionClaim.Fingerprint, permissionClaim.Scope)
+			log.Debugf("authserver: encontrei fingerprint '%s' valida para scope: '%s' ", permissionClaim.Fingerprint, permissionClaim.Scope)
 
 			// Claims map
 			myClaims := make(map[string][]string)
@@ -200,7 +200,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	if authzErr == nil && len(authz) > 0 {
 		ok, err := a.jwtinstance.ValidateJwt(authz)
 		metricsJwtTotal.WithLabelValues(a.Options.AppID).Inc()
-		log.Debugf("authserver: Received Authorization for: %s, result %v", authz, ok)
+		log.Debugf("authserver: Received Authorization for: '%s', result %v", authz, ok)
 		// Response ok par token valido e false para token invalido
 		if ok {
 			metricsJwtAceitoTotal.WithLabelValues(a.Options.AppID).Inc()
@@ -209,7 +209,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 			return response, nil
 		} else {
 			metricsJwtNegadoTotal.WithLabelValues(a.Options.AppID).Inc()
-			log.Debugf("authserver: Received Error %s", err)
+			log.Debugf("authserver: Received Error '%s'", err)
 			// Caso UNAUTHENTICATED com Body custom
 			response, _ := BuildResponse(1, "<em>Invalid JWT<em>", nil)
 			return response, nil
@@ -224,11 +224,11 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	hostname := req.Attributes.Request.Http.Host
 	path := req.Attributes.Request.Http.Path
 
-	log.Debugf("authserver: OIDC, hostname: %s, path: %s", hostname, path)
+	log.Debugf("authserver: OIDC, hostname: '%s', path: '%s'", hostname, path)
 
 	// Caso Allowed sem modificacao
 	for i := 0; i < len(a.Options.Oidc); i++ {
-		log.Debugf("%d - Hostname: %s; Path: %s", i, a.Options.Oidc[i].Hostname, a.Options.Oidc[i].Path)
+		log.Debugf("'%d' - Hostname: '%s'; Path: '%s'", i, a.Options.Oidc[i].Hostname, a.Options.Oidc[i].Path)
 		if hostname == a.Options.Oidc[i].Hostname &&
 			len(path) > len(a.Options.Oidc[i].Path) &&
 			a.Options.Oidc[i].Path == path[:len(a.Options.Oidc[i].Path)] {
@@ -246,7 +246,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 	//
 	//Header com fingerprint dos dados do certificado
 	clientCertHeader, _ := req.Attributes.Request.Http.Headers["x-forwarded-client-cert"]
-	log.Debugf("authserver: %s", clientCertHeader)
+	log.Debugf("authserver: '%s'", clientCertHeader)
 
 	//Header de scopo de claims
 	scopeString, _ := req.Attributes.Request.Http.Headers["x-scope-audience"]
@@ -262,7 +262,7 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 
 	//Se tiver um fingerprint permitido Gera o JWT com as permissoes e aceita a requisicao
 	if certPartsErr == nil && len(certParts.hash) > 0 {
-		log.Debugf("authserver: Fingerprint: %s recebido", certParts.hash)
+		log.Debugf("authserver: Fingerprint: '%s' recebido", certParts.hash)
 
 		//Se possivel, obtem o cn para construir o subject do token
 		cn, _ := certParts.GetCn()
@@ -275,8 +275,8 @@ func (a *AuthorizationServer) Check(ctx context.Context, req *auth.CheckRequest)
 		token, okToken := a.GetAuthorizationToken(permissionClaim, cn)
 		metricsMtlsTotal.WithLabelValues(a.Options.AppID).Inc()
 		if okToken {
-			tokenSha := fmt.Sprintf("Bearer %s", token)
-			log.Debugf("authserver: Build token: %s size:%d", tokenSha, len(tokenSha))
+			tokenSha := fmt.Sprintf("Bearer '%s'", token)
+			log.Debugf("authserver: Build token: '%s' size:'%d'", tokenSha, len(tokenSha))
 			metricsMtlsAceitoTotal.WithLabelValues(a.Options.AppID).Inc()
 			// Caso UNAUTHENTICATED com Header Custom
 			response, _ := BuildResponse(0, "", map[string]string{authHeader: tokenSha})

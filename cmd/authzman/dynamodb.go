@@ -51,9 +51,9 @@ func NewDynamoStorage(config config.DBConf) *DynamoDB {
 	db.region = config.Options["region"]
 	db.timeout, _ = strconv.Atoi(config.Options["timeout"])
 
-	log.Debugf("dynamodb: definido nome da tabela como: ", db.tableName)
-	log.Debugf("dynamodb: definido regiao como: ", db.region)
-	log.Debugf("dynamodb: definido tempo de timeout de busca: ", db.timeout)
+	log.Debugf("dynamodb: definido nome da tabela como: %s", db.tableName)
+	log.Debugf("dynamodb: definido regiao como: %s", db.region)
+	log.Debugf("dynamodb: definido tempo de timeout de busca: %d", db.timeout)
 
 	return db
 }

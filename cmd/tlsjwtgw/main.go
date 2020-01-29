@@ -101,6 +101,7 @@ func main() {
 	}
 
 	log.Infof("ID: %s", options.AppID)
+	log.Infof("Metrics: localhost:2112/metrics")
 
 	// Le as permissoes situadas no provedor de credenciais e salva numa
 	// estrutura/interface que possui o semaforo, o waitgroup e elas.

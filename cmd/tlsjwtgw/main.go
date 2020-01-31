@@ -2,8 +2,6 @@
 //
 package main
 
-// TODO FAMS, verificar os // INFO que eu coloquei nos codigos
-
 import (
 	"extauth/cmd/authzman"
 	c "extauth/cmd/config"
@@ -16,7 +14,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-//	"encoding/json"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
@@ -108,11 +105,7 @@ func main() {
 	log.Infof("ID: %s", options.AppID)
 	log.Infof("Metrics: localhost:2112/metrics")
 
-
-
 	log.Debugf("Instance ID: '%s'", options.AppID)
-
-	log.Fatal("Bye")
 
 	// Le as permissoes situadas no provedor de credenciais e salva numa
 	// estrutura/interface que possui o semaforo, o waitgroup e elas.

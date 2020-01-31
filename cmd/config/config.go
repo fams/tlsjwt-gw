@@ -3,7 +3,6 @@ package config
 import (
 	//"extauth/cmd/jwthandler"
 	"fmt"
-//	"strconv"
 	"time"
 	"io/ioutil"
 	"net/http"
@@ -168,25 +167,26 @@ func BuildOptions() (Options, error) {
 	resp, err := http.Get("http://169.254.169.254/latest/meta-data/instance-id")
 	if err != nil {
 		log.Infof("config: erro ao buscar o instance-id em 'http://169.254.169.254/latest/meta-data/instance-id'")
+
+		// nomeia o id como um nome gererico
 		opt.AppID = "ec2"
 	} else {
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Infof("config: erro ao inspecionar body do request para 'http://169.254.169.254/latest/meta-data/instance-id'")
+
+			// nomeia o id como um nome gererico
 			opt.AppID = "ec2"
 		}
 
+		// atribui o id da maquina
 		opt.AppID = string(body)
 	}
 
+	// fecha a conexao aberta anteriormente
 	defer resp.Body.Close()
 	
-
-	// Converte um int64 para string e determina este valor como o id da
-	// aplicacao
-	//opt.AppID = strconv.FormatInt(time.Now().UnixNano(), 10)
-
 	opt.Hostname = v1.GetString("hostname")
 	opt.Port = v1.GetInt("port")
 

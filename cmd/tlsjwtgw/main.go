@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+//	"encoding/json"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/patrickmn/go-cache"
@@ -37,6 +38,7 @@ var (
 	)
 )
 
+
 func amIAlive(AppID string, delay time.Duration) chan bool {
 	stop := make(chan bool)
 
@@ -56,6 +58,8 @@ func amIAlive(AppID string, delay time.Duration) chan bool {
 
 var addr = flag.String("listen-address", ":2112", "The address to listen on for HTTP requests.")
 
+
+
 func main() {
 	// Instancia variaveis com informacoes de configuracao
 	var (
@@ -68,6 +72,7 @@ func main() {
 	options, err = c.BuildOptions()
 
 	scheduleAlive := amIAlive(options.AppID, 1*time.Millisecond*1000)
+
 
 	// Inicializando algumas metricas
 	metricsJwtTotal.WithLabelValues(options.AppID).Add(0)
@@ -102,6 +107,12 @@ func main() {
 
 	log.Infof("ID: %s", options.AppID)
 	log.Infof("Metrics: localhost:2112/metrics")
+
+
+
+	log.Debugf("Instance ID: '%s'", options.AppID)
+
+	log.Fatal("Bye")
 
 	// Le as permissoes situadas no provedor de credenciais e salva numa
 	// estrutura/interface que possui o semaforo, o waitgroup e elas.

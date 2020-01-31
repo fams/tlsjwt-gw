@@ -102,10 +102,8 @@ func main() {
 		log.SetLevel(log.InfoLevel)
 	}
 
-	log.Infof("ID: %s", options.AppID)
-	log.Infof("Metrics: localhost:2112/metrics")
-
-	log.Debugf("Instance ID: '%s'", options.AppID)
+	log.Infof("main: instance id: '%s'", options.AppID)
+	log.Infof("main: url metrics: 'localhost:2112/metrics'")
 
 	// Le as permissoes situadas no provedor de credenciais e salva numa
 	// estrutura/interface que possui o semaforo, o waitgroup e elas.
